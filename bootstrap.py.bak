@@ -1,0 +1,18 @@
+import importlib
+from src.utils.config import load_config
+from src.strategies.signal_aggregator import SignalAggregator
+
+def bootstrap(ctx=None):
+    entry_keys = load_config("config/entry_signals.json")
+    # 현재 짠 스켈레톤에선 short_signals 빈 리스트
+    entry_signals = []
+    for key in entry_keys:
+        mod = importlib.import_module(f"src.strategies.entry_signals.{key}")
+        # generate 메서드만 래핑한 인스턴스
+        entry_signals.append(type("Wrapper", (), {"generate": mod.generate})())
+    agg = SignalAggregator(entry_signals=entry_signals, short_signals=[])
+    return agg
+
+if __name__ == "__main__":
+    agg = bootstrap()
+    print("Long?", agg.decide_long({}), "Short?", agg.decide_short({}))

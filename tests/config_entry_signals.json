@@ -1,0 +1,6 @@
+{
+  "entry_signals": ["fractal_breakout"],
+  "short_signals": [],
+  "exit_signals": [],
+  "risk_managers": []
+}

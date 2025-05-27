@@ -1,11 +1,26 @@
-FROM freqtradeorg/freqtrade:develop
+FROM freqtradeorg/freqtrade:2023.3
 
-# Switch user to root if you must install something from apt
-# Don't forget to switch the user back below!
-# USER root
+USER root
 
-# The below dependency - pyti - serves as an example. Please use whatever you need!
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    wget \
+    curl \
+    gcc \
+    make \
+    libffi-dev \
+    libfreetype6-dev \
+    libpng-dev \
+    libzmq3-dev \
+    libsqlite3-dev \
+    && apt-get clean
+
+# Install TA-Lib from source
+RUN curl -L -o ta-lib-0.4.0-src.tar.gz https://sourceforge.net/projects/ta-lib/files/ta-lib/0.4.0/ta-lib-0.4.0-src.tar.gz/download \
+    && tar -xvzf ta-lib-0.4.0-src.tar.gz \
+    && cd ta-lib && ./configure --prefix=/usr && make && make install \
+    && cd .. && rm -rf ta-lib ta-lib-0.4.0-src.tar.gz
+
 RUN pip install --user pyti
 
-# Switch back to user (only if you required root above)
-# USER ftuser
+USER ftuser
