@@ -1,0 +1,48 @@
+{
+  "entry_signals": [
+    "alligator_atr",
+    "ema_crossover",
+    "donchian"
+  ],  
+  "short_signals": [
+    "rsi_overbought",
+    "bb_reversion"
+  ],
+  "exit_signals": [
+    "trailing_stop_exit"
+  ],
+  "signal_threshold": 0.5,
+  "signal_weights": {
+    "alligator_atr": 1.0,
+    "ema_crossover": 0.8,
+    "donchian": 0.7
+  },
+  "api_keys": {
+    "binance": "test"
+  },
+  "min_signal_count": 2,
+  "env": "dev",
+  "feature_flags": {
+    "alligator_atr": true,
+    "ema_crossover": true,
+    "donchian": true,
+    "rsi_overbought": true,
+    "bb_reversion": true,
+    "trailing_stop_exit": true
+  },
+  "risk_management": {
+    "max_drawdown": 0.2,
+    "value_at_risk": 0.05
+  },
+  "backtest": {
+    "start_date": "2025-01-01",
+    "end_date": "2025-06-01"
+  },
+  "alerts": {
+    "slack_webhook": "",
+    "telegram_token": ""
+  },
+  "dashboard": {},
+  "slippage": 0.001,
+  "fee": 0.0005
+}

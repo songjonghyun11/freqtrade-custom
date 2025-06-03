@@ -1,0 +1,32 @@
+{
+  "entry_signals": ["alligator_atr", "ema_crossover", "vwap_reversion"],
+  "short_signals": ["rsi_overbought", "bb_reversion"],
+  "signal_threshold": 0.55,
+  "signal_weights": {
+    "alligator_atr": 1.0,
+    "ema_crossover": 0.85,
+    "vwap_reversion": 0.7
+  },
+  "api_keys": {
+    "binance": "YOUR_REAL_BINANCE_KEY",
+    "upbit": "YOUR_REAL_UPBIT_KEY"
+  },
+  "min_signal_count": 2,
+  "env": "live",
+  "feature_flags": {},
+  "risk_management": {
+    "max_drawdown": 0.20,
+    "value_at_risk": 0.05
+  },
+  "backtest": {
+    "start_date": "2025-01-01",
+    "end_date": "2025-06-01"
+  },
+  "alerts": {
+    "slack_webhook": "https://hooks.slack.com/services/REAL_WEBHOOK",
+    "telegram_token": "real-telegram-token"
+  },
+  "dashboard": {},
+  "slippage": 0.0008,
+  "fee": 0.0004
+}

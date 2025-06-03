@@ -1,0 +1,30 @@
+{
+  "properties": {
+    "risk_management": {
+      "type": "object",
+      "properties": {
+        "max_drawdown": { "type": "number" },
+        "value_at_risk": { "type": "number" }
+      }
+    },
+    "backtest": {
+      "type": "object",
+      "properties": {
+        "start_date": { "type": "string", "format": "date" },
+        "end_date": { "type": "string", "format": "date" }
+      }
+    },
+    "alerts": {
+      "type": "object",
+      "properties": {
+        "slack_webhook": { "type": "string" },
+        "telegram_token": { "type": "string" }
+      }
+    },
+    "dashboard": {
+      "type": "object"
+    },
+    "slippage": { "type": "number" },
+    "fee": { "type": "number" }
+  }
+}

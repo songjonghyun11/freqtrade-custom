@@ -1,11 +1,9 @@
 from src.dashboard.models import Trade, Reflection
-from datetime import datetime
 
 def test_trade_model():
-    t = Trade(id=1, timestamp=datetime.utcnow(), data={})
-    assert t.id == 1
-    assert isinstance(t.timestamp, datetime)
+    t = Trade(id=1, symbol="BTCUSDT", price=41000, qty=0.01)
+    assert t.symbol == "BTCUSDT"
 
 def test_reflection_model():
-    r = Reflection(timestamp=datetime.utcnow(), data={})
-    assert r.id is None or isinstance(r.id, int)
+    r = Reflection(id=1, content="테스트", timestamp="2024-01-01T00:00:00")
+    assert r.content == "테스트"

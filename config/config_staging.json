@@ -1,0 +1,31 @@
+{
+  "entry_signals": ["alligator_atr", "ema_crossover"],
+  "short_signals": ["rsi_overbought"],
+  "signal_threshold": 0.5,
+  "signal_weights": {
+    "alligator_atr": 1.0,
+    "ema_crossover": 0.8
+  },
+  "api_keys": {
+    "binance": "staging_key",
+    "upbit": "staging_key"
+  },
+  "min_signal_count": 2,
+  "env": "staging",
+  "feature_flags": {},
+  "risk_management": {
+    "max_drawdown": 0.25,
+    "value_at_risk": 0.08
+  },
+  "backtest": {
+    "start_date": "2025-01-01",
+    "end_date": "2025-06-01"
+  },
+  "alerts": {
+    "slack_webhook": "https://hooks.slack.com/services/T00000000/B00000000/XXXXXXXXXXXXXXXXXXXXXXXX",
+    "telegram_token": "staging-telegram-token"
+  },
+  "dashboard": {},
+  "slippage": 0.001,
+  "fee": 0.0007
+}
