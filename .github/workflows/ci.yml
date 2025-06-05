@@ -21,7 +21,8 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt || true
-          pip install pytest jsonschema pydantic
+          pip install -r requirements.txt
+          pip install pytest jsonschema pydantic psutil arrow
       - name: Run config validation tests
-        run: pytest tests/utils/test_config.py
+        run: |
+          pytest --maxfail=1 --disable-warnings tests/utils/test_config.py
