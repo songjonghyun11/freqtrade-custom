@@ -2,6 +2,7 @@ import json
 import jsonschema
 from pydantic import BaseModel, ValidationError
 from typing import Optional, List, Dict
+from src.utils.config_history import add_settings_history
 
 class RiskManagement(BaseModel):
     max_drawdown: Optional[float]
@@ -33,6 +34,7 @@ def load_config(config_path="config/config_dev.json", schema_path="schemas/confi
         jsonschema.validate(instance=raw, schema=schema)
     try:
         settings = Settings(**raw)
+        add_settings_history(config_path)
         return settings
     except ValidationError as e:
         print("⚠️ ValidationError!\n", e)

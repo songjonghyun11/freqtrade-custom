@@ -11,7 +11,7 @@
   "exit_signals": [
     "trailing_stop_exit"
   ],
-  "signal_threshold": 0.5,
+  "signal_threshold": 0.51,
   "signal_weights": {
     "alligator_atr": 1.0,
     "ema_crossover": 0.8,
@@ -24,7 +24,7 @@
   "env": "dev",
   "feature_flags": {
     "alligator_atr": true,
-    "ema_crossover": true,
+    "ema_crossover": false,
     "donchian": true,
     "rsi_overbought": true,
     "bb_reversion": true,
@@ -43,6 +43,6 @@
     "telegram_token": ""
   },
   "dashboard": {},
-  "slippage": 0.001,
+  "slippage": 0.002,
   "fee": 0.0005
 }
