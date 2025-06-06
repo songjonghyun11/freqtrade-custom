@@ -61,6 +61,6 @@ websockets==12.0
 janus==1.0.0
 
 ast-comments==1.1.2
-packaging==23.2'
+packaging==23.2
 
 pytest
