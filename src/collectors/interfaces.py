@@ -1,12 +1,17 @@
-# src/collectors/interfaces.py
+# src/collectors/orderbook.py
+import requests
+from .interfaces import ICollector
+from ..utils.common import fetch_with_retry
+import logging
 
-from abc import ABC, abstractmethod
+logger = logging.getLogger(__name__)
 
-class ICollector(ABC):
-    @abstractmethod
-    def collect(self, *args, **kwargs):
-        """
-        데이터를 수집하는 공통 메서드 시그니처를 정의합니다.
-        모든 하위 수집기(collector)는 이 메서드를 구현해야 합니다.
-        """
-        pass
+class OrderbookCollector(ICollector):
+    def fetch(self, ctx):
+        def _api_call(timeout):
+            response = requests.get("https://api.binance.com/api/v3/depth?symbol=BTCUSDT&limit=5", timeout=timeout)
+            response.raise_for_status()
+            return response.json()
+
+        fallback_orderbook = ctx.get("prev_orderbook", {})
+        return fetch_with_retry(_api_call, fallback=fallback_orderbook)
