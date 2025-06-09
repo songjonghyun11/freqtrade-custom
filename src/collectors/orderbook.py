@@ -4,6 +4,7 @@ from .interfaces import ICollector
 from ..utils.common import fetch_with_retry
 from .models import OrderbookData
 from pydantic import ValidationError
+from .interfaces import ICollector
 import logging
 
 logger = logging.getLogger("collectors.orderbook")

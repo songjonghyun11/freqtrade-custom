@@ -1,6 +1,7 @@
 import logging
 import os
 import time
+import logging
 from datetime import datetime, timedelta
 from src.persistence.database_manager import DatabaseManager
 from src.collectors.news import NewsCollector
@@ -18,6 +19,20 @@ from src.strategies.short_rsi_overbought_strategy import ShortRSIOverboughtStrat
 from src.strategies.short_funding_rate_strategy import ShortFundingRateStrategy
 from src.strategies.short_orderbook_imbalance_strategy import ShortOrderbookImbalanceStrategy
 from src.strategies.short_news_strategy import ShortNewsStrategy
+
+# 환경변수 로드
+load_dotenv()
+
+TELEGRAM_BOT_TOKEN = os.getenv("TG_BOT_TOKEN")
+TELEGRAM_CHAT_ID = os.getenv("TG_CHAT_ID")
+
+def send_alert(msg):
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    payload = {"chat_id": TELEGRAM_CHAT_ID, "text": msg}
+    try:
+        requests.post(url, json=payload, timeout=10)  # data → json
+    except Exception as e:
+        print(f"[ALERT 실패] {e}")
 
 # 1. 환경/보안/운영 분리
 API_KEYS = {
@@ -273,3 +288,6 @@ if __name__ == "__main__":
     while True:
         main_trading_cycle(ctx, prev_signals)
         time.sleep(60)  # 1분마다 반복
+
+if __name__ == "__main__":
+    send_alert("텔레그램 알림 테스트! 🎉")
