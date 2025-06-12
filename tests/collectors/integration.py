@@ -1,3 +1,4 @@
+pytest_plugins = ["pytest_mock"]
 import pytest
 from src.collectors.news import NewsCollector
 from src.collectors.orderbook import OrderbookCollector

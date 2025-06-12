@@ -1,15 +1,18 @@
-# src/collectors/chart_vision.py
 import requests
+import time
+import logging
 from .interfaces import ICollector
 from ..utils.common import fetch_with_retry
-import logging
+from .quality_guard import check_missing
 
 logger = logging.getLogger("collectors.chart_vision")
 
 class ChartVisionCollector(ICollector):
     def fetch(self, ctx):
-        def _api_call(timeout):
-            try:
+        start = time.time()
+        logger.info("[Collector][chart_vision] 시작")
+        try:
+            def _api_call(timeout):
                 response = requests.post(
                     "https://api.chartvision.example.com/analyze",
                     files={'image': open(ctx.get('chart_path'), 'rb')},
@@ -21,15 +24,18 @@ class ChartVisionCollector(ICollector):
                 if not data:
                     raise Exception("차트비전 데이터 없음")
                 return data
-            except Exception as e:
-                logger.warning(f"[차트비전 실패] {e}")
-                raise
 
-        fallback = ctx.get("prev_vision", {})
-        if not fallback:
-            logger.warning("[차트비전] fallback 값이 None/빈 딕셔너리임")
-        try:
-            return fetch_with_retry(_api_call, fallback=fallback)
+            fallback = ctx.get("prev_vision", {})
+            result = fetch_with_retry(_api_call, fallback=fallback)
+
+            if not check_missing(result, ["chart", "timestamp"]):
+                logger.warning("[차트비전] 결측 필드/스키마 불일치, fallback 사용: %s", result)
+                return fallback
+
+            duration = int((time.time() - start) * 1000)
+            logger.info("[Collector][chart_vision] 종료, 수집 1건, 실행시간=%dms", duration)
+            return result
         except Exception as e:
-            logger.error(f"[차트비전 최종 실패] fallback도 불가: {e}")
-            return fallback
+            duration = int((time.time() - start) * 1000)
+            logger.error("[Collector][chart_vision] 장애 발생: %s, 실행시간=%dms", e, duration)
+            return ctx.get("prev_vision", {})

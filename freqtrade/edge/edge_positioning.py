@@ -7,7 +7,7 @@ from datetime import timedelta
 from typing import Any, Dict, List, NamedTuple
 
 import numpy as np
-import utils_find_1st as utf1st
+from .. import utils_find_1st as utf1st
 from pandas import DataFrame
 
 from freqtrade.configuration import TimeRange
