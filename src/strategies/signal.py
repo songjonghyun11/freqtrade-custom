@@ -4,7 +4,6 @@ class Direction(Enum):
     LONG = "long"
     SHORT = "short"
     EXIT = "exit"
-    RISK = "risk"
 
 class Signal:
     def __init__(self, name: str, direction: Direction, score: float):
