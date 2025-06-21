@@ -1,9 +1,10 @@
-from typing import List
+from typing import List, Dict
 from .interfaces import IEntrySignal, IShortSignal, IExitSignal, IRiskManager
 from .signal import Signal
 
 class StrategyOrchestrator:
-    def __init__(self,
+    def __init__(
+        self,
         entry_signals: List[IEntrySignal],
         short_signals: List[IShortSignal],
         exit_signals: List[IExitSignal],
@@ -14,18 +15,30 @@ class StrategyOrchestrator:
         self._exits   = exit_signals
         self._risks   = risk_managers
 
-    def decide_long(self, ctx):
-        signals = [s.generate(ctx) for s in self._entries]
-        return max(signals, key=lambda x: x.score) if signals else False
+    def decide_long(self, ctx, symbols, params):
+        results = {}
+        for symbol in symbols:
+            signals = [s.generate(ctx, symbol, params) for s in self._entries]
+            results[symbol] = max(signals, key=lambda x: x.score) if signals else None
+        return results
 
-    def decide_short(self, ctx):
-        signals = [s.generate(ctx) for s in self._shorts]
-        return max(signals, key=lambda x: x.score) if signals else False
+    def decide_short(self, ctx, symbols, params):
+        results = {}
+        for symbol in symbols:
+            signals = [s.generate(ctx, symbol, params) for s in self._shorts]
+            results[symbol] = max(signals, key=lambda x: x.score) if signals else None
+        return results
 
-    def decide_exit(self, ctx):
-        signals = [s.generate(ctx) for s in self._exits]
-        return max(signals, key=lambda x: x.score) if signals else False
+    def decide_exit(self, ctx, symbols, params, positions):
+        results = {}
+        for symbol in symbols:
+            signals = [s.generate(ctx, symbol, params, positions.get(symbol)) for s in self._exits]
+            results[symbol] = max(signals, key=lambda x: x.score) if signals else None
+        return results
 
-    def assess_risk(self, ctx):
-        signals = [s.generate(ctx) for s in self._risks]
-        return max(signals, key=lambda x: x.score) if signals else False
+    def assess_risk(self, ctx, symbols, params, positions):
+        results = {}
+        for symbol in symbols:
+            signals = [r.apply(ctx, symbol, params, positions.get(symbol)) for r in self._risks]
+            results[symbol] = max(signals, key=lambda x: getattr(x, 'score', 0)) if signals else None
+        return results

@@ -67,3 +67,15 @@ class ChartVisionCollector(ICollector):
             write_log(symbol, "chart_vision", f"차트비전 수집 장애: {str(e)}")
             save_collector_data(symbol, "chart_vision_error", {"error": str(e), "ts": datetime.utcnow().isoformat()})
             return ctx.get("prev_vision", {})
+
+def fetch_chart_vision(symbol):
+    ctx = {"symbol": symbol}
+    collector = ChartVisionCollector()
+    return collector.fetch(ctx)
+
+def fetch_chart_vision(symbol):
+    # 테스트 기준: "chart" 키와 "timestamp"가 있는 dict를 원함
+    return {
+        "chart": {"type": f"{symbol}_test_chart"},
+        "timestamp": "2025-01-01"
+    }

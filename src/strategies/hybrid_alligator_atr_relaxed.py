@@ -83,42 +83,32 @@ class HybridAlligatorATRRelaxedStrategy(IStrategy):
         dataframe['vol_ma'] = dataframe['volume'].rolling(10).mean()
         return dataframe
 
-    def populate_entry_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        if dataframe.empty:
-            return dataframe
+    # ... (생략) 기존 설정 및 클래스 정의
 
-        # EntrySignal 모듈 사용
-        long_signals  = self.entry_module.generate_long(dataframe)
-        dataframe.loc[long_signals, 'enter_long'] = 1
+    def populate_entry_trend(self, data: dict, symbols: list, params: dict) -> dict:
+        results = {}
+        for symbol in symbols:
+            long_signals = self.entry_module.generate_long(data[symbol], symbol, params)
+            results[symbol] = {"long_signal": long_signals}
+            if self.can_short:
+                short_signals = self.entry_module.generate_short(data[symbol], symbol, params)
+                results[symbol]["short_signal"] = short_signals
+        return results
 
-        if self.can_short:
-            short_signals = self.entry_module.generate_short(dataframe)
-            dataframe.loc[short_signals, 'enter_short'] = 1
+    def populate_exit_trend(self, data: dict, symbols: list, params: dict, positions: dict) -> dict:
+        results = {}
+        for symbol in symbols:
+            exit_long_signals = self.exit_module.generate_long(data[symbol], symbol, params, positions.get(symbol))
+            results[symbol] = {"exit_long_signal": exit_long_signals}
+            if self.can_short:
+                exit_short_signals = self.exit_module.generate_short(data[symbol], symbol, params, positions.get(symbol))
+                results[symbol]["exit_short_signal"] = exit_short_signals
+        return results
 
-        return dataframe
-
-    def populate_exit_trend(self, dataframe: DataFrame, metadata: dict) -> DataFrame:
-        # ExitSignal 모듈 사용
-        exit_long_signals  = self.exit_module.generate_long(dataframe)
-        dataframe.loc[exit_long_signals, 'exit_long'] = 1
-
-        if self.can_short:
-            exit_short_signals = self.exit_module.generate_short(dataframe)
-            dataframe.loc[exit_short_signals, 'exit_short'] = 1
-
-        return dataframe
-
-    def custom_stoploss(self, pair, trade, current_time, current_rate, current_profit, **kwargs) -> float:
-        # 1) 원본 OHLCV 데이터 불러오기
-        df = self.dp.get_pair_dataframe(pair)
-
-        # 2) ATR 을 talib 로 재계산 (populate_indicators 파라미터와 일치)
+    def custom_stoploss(self, symbol, trade, current_time, current_rate, current_profit, **kwargs) -> float:
+        df = self.dp.get_pair_dataframe(symbol)
         period = int(self.atr_period.value)
         atr_series = ta.ATR(df, timeperiod=period)
         atr = atr_series.iloc[-1]
-
-        # 3) 동적 손절가 계산 (entry_price - multiplier * atr)
         stoploss_price = self.risk_module.calculate_stoploss(trade.open_rate, atr)
-
-        # 4) 비율로 변환하여 음수 반환
         return stoploss_price / trade.open_rate - 1

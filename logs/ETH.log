@@ -31,3 +31,18 @@ timestamp
 [2025-06-20T10:19:39.419069][orderbook] 수집 정상 | 건수: 1
 [2025-06-20T10:35:20.667314][orderbook] 수집 데이터 없음/이상치
 [2025-06-20T10:39:16.889611][orderbook] 수집 데이터 없음/이상치
+[2025-06-21T04:26:16.370869][quality:missing] 필드 결측: chart / 데이터: {}
+[2025-06-21T04:26:16.375595][chart_vision] 결측 필드/스키마 불일치, fallback 사용
+[2025-06-21T04:26:41.793556][funding_rate] 스키마 결측/불일치: 3 validation errors for FundingRateData
+symbol
+  Field required [type=missing, input_value={}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.11/v/missing
+funding_rate
+  Field required [type=missing, input_value={}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.11/v/missing
+timestamp
+  Field required [type=missing, input_value={}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.11/v/missing
+[2025-06-21T04:27:06.129535][orderbook] 수집 데이터 없음/이상치
+[2025-06-21T04:43:51.007515][orderbook] 수집 데이터 없음/이상치
+[2025-06-21T04:47:46.088034][orderbook] 수집 데이터 없음/이상치

@@ -1,7 +1,5 @@
-from ..interfaces import IRiskManager
-from ..signal import Signal, Direction
-
-class SampleRisk(IRiskManager):
-    def generate(self, ctx) -> Signal:
-        # TODO: 실제 리스크 평가 로직
-        return Signal("SampleRisk", Direction.RISK, 0.0)
+for symbol in symbols:
+    risk_result = DynamicStoploss().apply(ctx, symbol, params, position)
+    # 혹은
+    mdd_result = PortfolioMDDManager().apply(ctx, symbol, params, position)
+    # 결과 확인 후 손절/강제청산 등 실행
