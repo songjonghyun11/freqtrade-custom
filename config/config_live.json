@@ -7,10 +7,20 @@
     "ema_crossover": 0.85,
     "vwap_reversion": 0.7
   },
-  "api_keys": {
+  "symbols": ["ETH", "SOL", "XRP", "ADA", "AVAX", "MATIC", "LINK", "LTC"],
+    "params": {
+  "ETH": {"ema_short": 9, "ema_long": 26, "rsi_period": 14},
+  "SOL": {"ema_short": 9, "ema_long": 26, "rsi_period": 14},
+  "ADA": {"ema_short": 9, "ema_long": 26, "rsi_period": 14},
+  "AVAX": {"ema_short": 9, "ema_long": 26, "rsi_period": 14},
+  "MATIC": {"ema_short": 9, "ema_long": 26, "rsi_period": 14},
+  "LINK": {"ema_short": 9, "ema_long": 26, "rsi_period": 14},
+  "LTC": {"ema_short": 9, "ema_long": 26, "rsi_period": 14}
+},
+    "api_keys": {
     "binance": "YOUR_REAL_BINANCE_KEY",
     "upbit": "YOUR_REAL_UPBIT_KEY"
-  },
+},
   "min_signal_count": 2,
   "env": "live",
   "feature_flags": {},

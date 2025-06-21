@@ -1,0 +1,33 @@
+[2025-06-20T08:43:40.369326][news] 유효 뉴스 없음/이상치
+[2025-06-20T08:44:28.157426][news] 유효 뉴스 없음/이상치
+[2025-06-20T08:44:56.257909][fear_greed] 스키마 결측/불일치: 3 validation errors for FearGreedData
+value
+  Field required [type=missing, input_value={}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.11/v/missing
+value_classification
+  Field required [type=missing, input_value={}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.11/v/missing
+timestamp
+  Field required [type=missing, input_value={}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.11/v/missing
+[2025-06-20T08:45:10.841948][orderbook] 수집 데이터 없음/이상치
+[2025-06-20T08:56:55.294313][news] 유효 뉴스 없음/이상치
+[2025-06-20T08:57:21.775689][fear_greed] 스키마 결측/불일치: 3 validation errors for FearGreedData
+value
+  Field required [type=missing, input_value={}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.11/v/missing
+value_classification
+  Field required [type=missing, input_value={}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.11/v/missing
+timestamp
+  Field required [type=missing, input_value={}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.11/v/missing
+[2025-06-20T08:57:35.278880][orderbook] 수집 데이터 없음/이상치
+[2025-06-20T09:01:46.122963][news] 유효 뉴스 없음/이상치
+[2025-06-20T09:02:12.642892][fear_greed] 공포탐욕지수 수집 성공
+[2025-06-20T09:02:25.888267][orderbook] 수집 데이터 없음/이상치
+[2025-06-20T10:15:49.923475][orderbook] 수집 데이터 없음/이상치
+[2025-06-20T10:17:18.799672][orderbook] 수집 데이터 없음/이상치
+[2025-06-20T10:19:39.591429][orderbook] 수집 정상 | 건수: 1
+[2025-06-20T10:35:20.950803][orderbook] 수집 데이터 없음/이상치
+[2025-06-20T10:39:17.064957][orderbook] 수집 데이터 없음/이상치

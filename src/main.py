@@ -276,8 +276,9 @@ def main_trading_cycle(ctx, prev_signals):
         generate_report()
 
 if __name__ == "__main__":
-    ctx = {
-        "symbol": "BTC/USDT",
+    for symbol in config["symbols"]:
+        ctx = {
+        "symbol": symbol,
         "interval": "5m",
         "current_time": datetime.utcnow().isoformat(),
         "prev_news": [],
