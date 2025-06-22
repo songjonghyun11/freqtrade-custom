@@ -1,7 +1,7 @@
 import talib
 import numpy as np
 from interfaces import IEntrySignal
-from signal import Signal, Direction
+from mysignal import Signal, Direction
 
 class VWMacdSignal(IEntrySignal):
     def generate(self, ctx, symbol, params):

@@ -1,6 +1,6 @@
 from typing import List, Dict
 from interfaces import IEntrySignal, IShortSignal, IExitSignal, IRiskManager
-from signal import Signal
+from mysignal import Signal
 
 class StrategyOrchestrator:
     def __init__(
