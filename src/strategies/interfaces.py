@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Any
-from .signal import Signal
+from mysignal import Signal
 
 class IEntrySignal(ABC):
     @abstractmethod

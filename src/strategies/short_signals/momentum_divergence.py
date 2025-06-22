@@ -1,6 +1,6 @@
 import talib
-from ..interfaces import IShortSignal
-from ..signal import Signal, Direction
+from interfaces import IShortSignal
+from signal import Signal, Direction
 
 class MomentumDivergenceSignal(IShortSignal):
     def generate(self, ctx, symbol, params):

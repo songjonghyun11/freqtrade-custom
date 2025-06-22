@@ -1,5 +1,5 @@
-from ..interfaces import IExitSignal
-from ..signal import Signal, Direction
+from interfaces import IExitSignal
+from signal import Signal, Direction
 
 class TrailingStopExitSignal(IExitSignal):
     def __init__(self):

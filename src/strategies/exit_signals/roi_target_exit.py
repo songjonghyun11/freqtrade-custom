@@ -1,5 +1,5 @@
-from ..interfaces import IExitSignal
-from ..signal import Signal, Direction
+from interfaces import IExitSignal
+from signal import Signal, Direction
 
 class ROITargetExitSignal(IExitSignal):
     def generate(self, ctx, symbol, params, position=None):

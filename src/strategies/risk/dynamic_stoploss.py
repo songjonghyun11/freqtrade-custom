@@ -1,4 +1,4 @@
-from ..interfaces import IRiskManager
+from interfaces import IRiskManager
 
 class DynamicStoploss(IRiskManager):
     def apply(self, ctx, symbol, params, position):

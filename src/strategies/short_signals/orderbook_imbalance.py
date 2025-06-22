@@ -1,5 +1,5 @@
-from ..interfaces import IShortSignal
-from ..signal import Signal, Direction
+from interfaces import IShortSignal
+from signal import Signal, Direction
 
 class OrderbookImbalanceSignal(IShortSignal):
     def generate(self, ctx, symbol, params):

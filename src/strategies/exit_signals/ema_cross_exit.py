@@ -1,6 +1,6 @@
 import talib
-from ..interfaces import IExitSignal
-from ..signal import Signal, Direction
+from interfaces import IEntrySignal
+from signal import Signal, Direction
 
 class EMACrossExitSignal(IExitSignal):
     def generate(self, ctx, symbol, params, position=None):

@@ -1,5 +1,5 @@
-from ..interfaces import IShortSignal
-from ..signal import Signal, Direction
+from interfaces import IShortSignal
+from signal import Signal, Direction
 
 class FundingRateSignal(IShortSignal):
     def generate(self, ctx, symbol, params):
