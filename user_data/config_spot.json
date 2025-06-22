@@ -1,0 +1,44 @@
+{
+  "max_open_trades": 3,
+  "stake_currency": "USDT",
+  "stake_amount": 100,
+  "dry_run": true,
+  "dry_run_wallet": 1000,
+  "timeframe": "5m",
+  "trading_mode": "spot",
+  "exchange": {
+    "name": "binance",
+    "key": "",
+    "secret": "",
+    "ccxt_config": {
+      "options": {
+        "defaultType": "spot"
+      }
+    },
+    "ccxt_async_config": {},
+    "pair_whitelist": ["BTC/USDT", "ETH/USDT", "ADA/USDT"],
+    "pair_blacklist": []
+  },
+  "pairlists": [
+    {
+      "method": "StaticPairList",
+      "pairs": ["BTC/USDT", "ETH/USDT", "ADA/USDT"]
+    }
+  ],
+  "entry_pricing": {
+    "price_side": "ask"
+  },
+  "exit_pricing": {
+    "price_side": "bid",
+    "use_order_book": false,
+    "fallback": "mid"
+  },
+  "strategy": "HybridAlligatorATRRelaxedStrategy",
+  "bot_name": "freqtrade_bot",
+  "initial_state": "running",
+  "force_entry_enable": false,
+  "protection": {
+    "stop_loss_on_exchange": true,
+    "max_entry_position_adjustment": 0.1
+  }
+}

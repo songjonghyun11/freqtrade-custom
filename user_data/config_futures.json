@@ -1,0 +1,56 @@
+{
+  "max_open_trades": 3,
+  "stake_currency": "USDT",
+  "stake_amount": 100,
+  "dry_run": true,
+  "dry_run_wallet": 1000,
+  "timeframe": "5m",
+  "trading_mode": "futures",
+  "margin_mode":   "isolated",
+
+  "exchange": {
+    "name": "binance",
+    "key": "",
+    "secret": "",
+    "futures": true,   
+    "ccxt_config": {
+      "options": {
+        "defaultType": "future"
+      }
+    },
+    "ccxt_async_config": {
+      "options": {
+        "defaultType": "future"
+      }
+    },
+    "pair_whitelist": ["BTC/USDT:USDT", "ETH/USDT:USDT", "ADA/USDT:USDT"],
+    "pair_blacklist": []
+  },
+
+  "pairlists": [
+    {
+      "method": "StaticPairList",
+      "pairs": ["BTC/USDT:USDT", "ETH/USDT:USDT", "ADA/USDT:USDT"]
+    }
+  ],
+
+  "entry_pricing": {
+    "price_side": "same",
+    "use_order_book": true
+  },
+  "exit_pricing": {
+   "price_side": "same",
+   "use_order_book": true,
+   "fallback":       "mid"
+  },
+
+  "strategy": "HybridAlligatorATRRelaxedStrategy",
+  "bot_name": "freqtrade_bot",
+  "initial_state": "running",
+  "force_entry_enable": false,
+
+  "protection": {
+    "stop_loss_on_exchange": true,
+    "max_entry_position_adjustment": 0.1
+  }
+}

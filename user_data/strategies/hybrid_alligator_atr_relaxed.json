@@ -1,0 +1,36 @@
+{
+  "strategy_name": "HybridAlligatorATRRelaxedStrategy",
+  "params": {
+    "roi": {
+      "0": 0.245,
+      "26": 0.048,
+      "50": 0.021,
+      "121": 0
+    },
+    "stoploss": {
+      "stoploss": -0.23
+    },
+    "trailing": {
+      "trailing_stop": true,
+      "trailing_stop_positive": 0.03,
+      "trailing_stop_positive_offset": 0.05,
+      "trailing_only_offset_is_reached": false
+    },
+    "max_open_trades": {
+      "max_open_trades": 3
+    },
+    "buy": {
+      "atr_period": 8,
+      "high_lookback": 1,
+      "vol_multiplier": 1.666128535678947,
+      "volat_threshold": 0.012684344580951034
+    },
+    "sell": {
+      "sl_atr_multiplier": 0.8159056960001847,
+      "stoploss_param": -0.0546996440678652
+    },
+    "protection": {}
+  },
+  "ft_stratparam_v": 1,
+  "export_time": "2025-05-13 20:25:38.586123+00:00"
+}
