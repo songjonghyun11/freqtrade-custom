@@ -1,21 +1,12 @@
 import talib
 from interfaces import IEntrySignal
-from mysignal import Signal, Direction
 
 class EMACrossoverSignal(IEntrySignal):
     def generate(self, ctx, symbol, params):
-        close = ctx[symbol]['close']
+        close = ctx['data']['close']
 
-        # 심볼별 파라미터 (없으면 디폴트)
-        fast_period = params[symbol].get('fast_ema', 12)
-        slow_period = params[symbol].get('slow_ema', 26)
+        ema_fast = talib.EMA(close, timeperiod=12)
+        ema_slow = talib.EMA(close, timeperiod=26)
 
-        fast_ema = talib.EMA(close, timeperiod=fast_period)[-1]
-        slow_ema = talib.EMA(close, timeperiod=slow_period)[-1]
-
-        if fast_ema > slow_ema:
-            score = 1.0
-        else:
-            score = 0.0
-
-        return Signal("ema_crossover", Direction.LONG, score)
+        crossover = (ema_fast > ema_slow) & (ema_fast.shift(1) <= ema_slow.shift(1))
+        return crossover.fillna(False)

@@ -1,18 +1,14 @@
-import numpy as np
+import pandas as pd
+import talib.abstract as ta
 from interfaces import IEntrySignal
-from mysignal import Signal, Direction
 
 class VWAPReversionSignal(IEntrySignal):
     def generate(self, ctx, symbol, params):
-        close = ctx[symbol]['close']
-        volume = ctx[symbol].get('volume', np.ones_like(close))
-        vwap_period = params[symbol].get('vwap_period', 20)
+        df = ctx["data"]
 
-        vwap = np.sum(close[-vwap_period:] * volume[-vwap_period:]) / np.sum(volume[-vwap_period:])
+        vwap_period = 20
+        vwap = (df["close"][-vwap_period:] * df["volume"][-vwap_period:]).sum() / df["volume"][-vwap_period:].sum()
 
-        if close[-1] > vwap:
-            score = 1.0
-        else:
-            score = 0.0
+        cond = df["close"] < vwap * 0.985
 
-        return Signal("vwap_reversion", Direction.LONG, score)
+        return cond.fillna(False)

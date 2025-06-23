@@ -1,27 +1,18 @@
-import talib
-import numpy as np
+import pandas as pd
+import talib.abstract as ta
 from interfaces import IEntrySignal
-from mysignal import Signal, Direction
 
 class VWMacdSignal(IEntrySignal):
     def generate(self, ctx, symbol, params):
-        close = ctx[symbol]['close']
-        volume = ctx[symbol].get('volume', np.ones_like(close))
+        df = ctx["data"]
 
-        macd_cfg = params[symbol].get('macd', {"fast":12, "slow":26, "signal":9})
-        vwap_period = params[symbol].get('vwap_period', 20)
+        macd, macdsignal, _ = ta.MACD(df["close"], fastperiod=12, slowperiod=26, signalperiod=9)
+        vwap_period = 20
+        vwap = (df["close"][-vwap_period:] * df["volume"][-vwap_period:]).sum() / df["volume"][-vwap_period:].sum()
 
-        macd, macdsignal, _ = talib.MACD(
-            close,
-            fastperiod=macd_cfg['fast'],
-            slowperiod=macd_cfg['slow'],
-            signalperiod=macd_cfg['signal'],
+        cond = (
+            (macd > macdsignal) &
+            (df["close"] > vwap)
         )
-        vwap = np.sum(close[-vwap_period:] * volume[-vwap_period:]) / np.sum(volume[-vwap_period:])
 
-        if macd[-1] > macdsignal[-1] and close[-1] > vwap:
-            score = 1.0
-        else:
-            score = 0.0
-
-        return Signal("vw_macd", Direction.LONG, score)
+        return cond.fillna(False)

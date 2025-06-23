@@ -1,21 +1,16 @@
-import numpy as np
 from interfaces import IEntrySignal
-from mysignal import Signal, Direction
+import pandas as pd
+import talib.abstract as ta
 
-class DonchianSignal(IEntrySignal):
+class DonchianBreakoutSignal(IEntrySignal):
     def generate(self, ctx, symbol, params):
-        high = ctx[symbol]['high']
-        close = ctx[symbol]['close']
+        high = ctx['data']['high']
+        low = ctx['data']['low']
+        close = ctx['data']['close']
 
-        # 심볼별 파라미터 (없으면 디폴트)
-        period = params[symbol].get('donchian_period', 20)
+        period = params.get('donchian_period', 20)
 
-        donchian_high = np.max(high[-period:])  # 기간 내 최고가
+        upper = high.rolling(period).max().shift(1)  # 이전 캔들 기준
+        breakout = close > upper
 
-        # 종가가 최고가 돌파 시 롱 진입
-        if close[-1] >= donchian_high:
-            score = 1.0
-        else:
-            score = 0.0
-
-        return Signal("donchian", Direction.LONG, score)
+        return breakout.fillna(False)

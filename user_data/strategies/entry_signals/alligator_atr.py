@@ -1,34 +1,30 @@
 import numpy as np
+import pandas as pd
 import talib
 from interfaces import IEntrySignal
-from mysignal import Signal, Direction
 
 class AlligatorATRSignal(IEntrySignal):
     def generate(self, ctx, symbol, params):
-        # 심볼별 데이터
-        close = ctx[symbol]['close']
-        high = ctx[symbol]['high']
-        low = ctx[symbol]['low']
+        df = ctx  # ✅ 백테스트에서는 ctx 자체가 DataFrame
 
-        # 심볼별 파라미터 (없으면 디폴트)
-        ema_jaw = params[symbol].get('ema_jaw', 13)
-        ema_teeth = params[symbol].get('ema_teeth', 8)
-        ema_lips = params[symbol].get('ema_lips', 5)
-        atr_period = params[symbol].get('atr_period', 14)
-        atr_threshold = params[symbol].get('atr_threshold', 0.01)
+        ema_jaw = params.get('ema_jaw', 13)
+        ema_teeth = params.get('ema_teeth', 8)
+        ema_lips = params.get('ema_lips', 5)
+        atr_period = params.get('atr_period', 14)
+        atr_threshold = params.get('atr_threshold', 0.01)
 
-        # === Alligator(EMA 13/8/5)
-        jaw = talib.EMA(close, timeperiod=ema_jaw)[-1]
-        teeth = talib.EMA(close, timeperiod=ema_teeth)[-1]
-        lips = talib.EMA(close, timeperiod=ema_lips)[-1]
+        hl2 = (df["high"] + df["low"]) / 2
 
-        # === ATR: 변동성 체크
-        atr = talib.ATR(high, low, close, timeperiod=atr_period)[-1]
+        jaw   = pd.Series(talib.EMA(hl2, timeperiod=ema_jaw), index=df.index).shift(8)
+        teeth = pd.Series(talib.EMA(hl2, timeperiod=ema_teeth), index=df.index).shift(5)
+        lips  = pd.Series(talib.EMA(hl2, timeperiod=ema_lips), index=df.index).shift(3)
+        atr = talib.ATR(df["high"], df["low"], df["close"], timeperiod=atr_period)
 
-        # === 진입조건 ===
-        if lips > teeth > jaw and close[-1] > jaw and atr > atr_threshold:
-            score = 1.0
-        else:
-            score = 0.0
+        cond = (
+        (lips > teeth) &
+        (teeth > jaw) &
+        (df["close"] > jaw) &
+        (atr > atr_threshold)
+        )
 
-        return Signal("alligator_atr", Direction.LONG, score)
+        return cond.fillna(False)

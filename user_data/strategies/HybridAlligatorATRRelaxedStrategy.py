@@ -4,8 +4,9 @@ import talib.abstract as ta
 import numpy as np
 import pandas as pd
 from pandas import DataFrame
+from interfaces import IEntrySignal, IExitSignal, IRiskManager, IShortSignal
 
-from entry_signals.alligator_atr import AlligatorAtrSignal
+from entry_signals.alligator_atr import AlligatorATRSignal
 from entry_signals.ema_crossover import EMACrossoverSignal
 from entry_signals.rsi_momentum import RSIMomentumSignal
 from entry_signals.vw_macd import VWMacdSignal
@@ -14,6 +15,7 @@ from exit_signals.trailing_stop_exit import TrailingStopExit
 from exit_signals.ema_cross_exit import EMACrossExit
 
 from risk.dynamic_stoploss import DynamicStoploss
+
 
 
 
@@ -51,19 +53,19 @@ class HybridAlligatorATRRelaxedStrategy(IStrategy):
         super().__init__(config)
         # 전략별 신호 리스트화 (신호별 파라미터는 각 신호에서 처리 or 전달)
         self.entry_signals = [
-            AlligatorAtrSignal(),
-            EMACrossoverSignal(),
-            RSIMomentumSignal(),
-            VWMacdSignal(),
+            AlligatorATRSignal(),
+            # EMACrossoverSignal(),
+            # RSIMomentumSignal(),
+            # VWMacdSignal(),
             # ... 필요하면 추가
         ]
         self.exit_signals = [
-            TrailingStopExit(),
-            EMACrossExit(),
+            # TrailingStopExit(),
+             EMACrossExit(),
             # ... 필요하면 추가
         ]
         self.risk_modules = [
-            DynamicStoploss(),
+             DynamicStoploss(),
             # ... 필요하면 추가
         ]
 
@@ -98,6 +100,6 @@ class HybridAlligatorATRRelaxedStrategy(IStrategy):
         atr_series = ta.ATR(df, timeperiod=period)
         atr = atr_series.iloc[-1]
         # 여러 risk 모듈을 쓸 경우, 가장 보수적인(최소) 손절로 설정 가능
-        stoploss_prices = [risk.calculate_stoploss(trade.open_rate, atr) for risk in self.risk_modules]
+        stoploss_prices = [risk.adjust_stoploss(trade, trade.open_rate, {"atr": atr}) for risk in self.risk_modules]
         stoploss_price = min(stoploss_prices)
         return stoploss_price / trade.open_rate - 1

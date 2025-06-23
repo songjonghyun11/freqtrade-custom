@@ -1,20 +1,12 @@
 import talib
 from interfaces import IEntrySignal
-from mysignal import Signal, Direction
 
 class RSIMomentumSignal(IEntrySignal):
     def generate(self, ctx, symbol, params):
-        close = ctx[symbol]['close']
+        close = ctx['data']['close']
+        rsi = talib.RSI(close, timeperiod=14)
 
-        rsi_period = params[symbol].get('rsi_period', 14)
-        rsi_low = params[symbol].get('rsi_low', 35)
-        rsi_high = params[symbol].get('rsi_high', 55)
+        # 조건: RSI가 50 초과 && 상승 중 && 종가도 상승 중
+        cond = (rsi > 50) & (rsi > rsi.shift(1)) & (close > close.shift(1))
 
-        rsi = talib.RSI(close, timeperiod=rsi_period)[-1]
-
-        if rsi_low < rsi < rsi_high:
-            score = 1.0
-        else:
-            score = 0.0
-
-        return Signal("rsi_momentum", Direction.LONG, score)
+        return cond.fillna(False)

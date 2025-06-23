@@ -1,7 +1,7 @@
 from interfaces import IExitSignal
 from mysignal import Signal, Direction
 
-class TrailingStopExitSignal(IExitSignal):
+class TrailingStopExit(IExitSignal):
     def __init__(self):
         # 심볼별, 포지션별 최고가 관리 (dict)
         self.highest = {}

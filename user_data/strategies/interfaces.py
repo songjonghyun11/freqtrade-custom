@@ -1,35 +1,28 @@
+
 from abc import ABC, abstractmethod
-from typing import Any
-from mysignal import Signal
+import pandas as pd
 
 class IEntrySignal(ABC):
     @abstractmethod
-    def generate(self, ctx: Any, symbol: str, params: dict) -> Signal:
-        """롱 진입 신호 생성"""
-
-class IShortSignal(ABC):
-    @abstractmethod
-    def generate(self, ctx: Any, symbol: str, params: dict) -> Signal:
-        """숏 진입 신호 생성"""
+    def generate(self, dataframe: pd.DataFrame, pair: str, params: dict) -> pd.Series:
+        pass
 
 class IExitSignal(ABC):
     @abstractmethod
-    def generate(self, ctx: Any, symbol: str, params: dict, position: Any = None) -> Signal:
-        """청산 신호 생성"""
+    def generate(self, dataframe: pd.DataFrame, pair: str, params: dict) -> pd.Series:
+        pass
 
 class IRiskManager(ABC):
     @abstractmethod
-    def apply(self, ctx: Any, symbol: str, params: dict, position: Any) -> Any:
-        """리스크 평가 및 주문 객체(Order) 리턴"""
+    def calculate_stoploss(self, entry_price: float, atr: float) -> float:
+        pass
 
-# ======== [확장] Allocator & AnomalyDetector 인터페이스 추가 ========
-
-class IAllocator(ABC):
+class IShortSignal(ABC):
     @abstractmethod
-    def decide_allocation(self, ctx: Any, symbol: str, params: dict) -> dict:
-        """포지션 배분 결정"""
+    def generate(self, dataframe: pd.DataFrame, pair: str, params: dict) -> pd.Series:
+        pass
 
-class IAnomalyDetector(ABC):
+class IRiskManagement(ABC):
     @abstractmethod
-    def detect(self, ctx: Any, symbol: str, params: dict) -> bool:
-        """이상 감지"""
+    def adjust_stoploss(self, trade, current_rate, params):
+        pass
