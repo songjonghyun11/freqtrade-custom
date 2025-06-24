@@ -5,6 +5,7 @@
   "dry_run": true,
   "dry_run_wallet": 1000,
   "timeframe": "5m",
+  "stoploss": -0.23,
   "trading_mode": "spot",
   "exchange": {
     "name": "binance",
