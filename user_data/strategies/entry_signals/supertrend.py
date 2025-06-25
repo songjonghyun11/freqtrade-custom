@@ -4,13 +4,13 @@ from interfaces import IEntrySignal
 
 class SupertrendSignal(IEntrySignal):
     def generate(self, ctx, symbol, params):
-        df = ctx["data"].copy()
+        df = ctx.copy()
         atr_period = params.get("atr_period", 10)
         atr_multiplier = params.get("atr_multiplier", 3.0)
 
         hl2 = (df["high"] + df["low"]) / 2
         atr = df["high"].rolling(atr_period).max() - df["low"].rolling(atr_period).min()
-        atr = atr.fillna(method='backfill')  # NaN 방어
+        atr = atr.bfill()  # NaN 방어
 
         upper_band = hl2 + (atr_multiplier * atr)
         lower_band = hl2 - (atr_multiplier * atr)

@@ -3,7 +3,7 @@ from interfaces import IEntrySignal
 
 class EMACrossoverSignal(IEntrySignal):
     def generate(self, ctx, symbol, params):
-        close = ctx['data']['close']
+        close = ctx['close'] 
 
         ema_fast = talib.EMA(close, timeperiod=12)
         ema_slow = talib.EMA(close, timeperiod=26)

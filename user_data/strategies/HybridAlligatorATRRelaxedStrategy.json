@@ -11,27 +11,43 @@
       "max_open_trades": 3
     },
     "buy": {
-      "atr_period": 20,
-      "high_lookback": 4,
-      "vol_multiplier": 0.671,
-      "volat_threshold": 0.016
+      "atr_period": 14,
+      "donchian_period": 21,
+      "ema_fast_period": 17,
+      "ema_slow_period": 107,
+      "high_lookback": 5,
+      "rsi_period": 18,
+      "rsi_threshold": 50,
+      "supertrend_atr_multiplier": 2.5142159555231,
+      "supertrend_atr_period": 21,
+      "trend_ema_fast_period": 17,
+      "trend_ema_slow_period": 22,
+      "trend_vol_ma_period": 50,
+      "vol_multiplier": 3.1686388532419,
+      "volat_threshold": 0.0366099195855,
+      "vwaprev_period": 23,
+      "vwaprev_threshold": 0.970775879809,
+      "vwmacd_fastperiod": 18,
+      "vwmacd_signalperiod": 6,
+      "vwmacd_slowperiod": 24,
+      "vwmacd_vwap_period": 27
     },
     "sell": {
       "exit_fast_ema": 12,
-      "exit_slow_ema": 36,
-      "sl_atr_multiplier": 1.329
+      "exit_slow_ema": 23,
+      "sl_atr_multiplier": 1.5213489753846
     },
     "protection": {},
     "roi": {
-      "0": 0.251,
-      "33": 0.063,
-      "46": 0.038,
-      "125": 0
+      "0": 0.176,
+      "34": 0.07,
+      "86": 0.035,
+      "175": 0
     },
     "stoploss": {
-      "stoploss": -0.334
+      "stoploss": -0.335
     }
   },
   "ft_stratparam_v": 1,
-  "export_time": "2025-06-24 09:45:04.284635+00:00"
+  "export_time": "2025-06-25 09:16:28.819219+00:00"
 }

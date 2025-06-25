@@ -2,11 +2,13 @@ from interfaces import IEntrySignal
 import pandas as pd
 import talib.abstract as ta
 
+
 class DonchianBreakoutSignal(IEntrySignal):
     def generate(self, ctx, symbol, params):
-        high = ctx['data']['high']
-        low = ctx['data']['low']
-        close = ctx['data']['close']
+        high = ctx['high']
+        low = ctx['low']
+        close = ctx['close']
+
 
         period = params.get('donchian_period', 20)
 
