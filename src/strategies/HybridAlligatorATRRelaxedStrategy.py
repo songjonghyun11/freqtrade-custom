@@ -4,8 +4,9 @@ import talib.abstract as ta
 import numpy as np
 import pandas as pd
 from pandas import DataFrame
+from interfaces import IEntrySignal, IExitSignal, IRiskManager, IShortSignal
 
-from entry_signals.alligator_atr import AlligatorAtrSignal
+from entry_signals.alligator_atr import AlligatorATRSignal
 from entry_signals.ema_crossover import EMACrossoverSignal
 from entry_signals.rsi_momentum import RSIMomentumSignal
 from entry_signals.vw_macd import VWMacdSignal
@@ -14,6 +15,7 @@ from exit_signals.trailing_stop_exit import TrailingStopExit
 from exit_signals.ema_cross_exit import EMACrossExit
 
 from risk.dynamic_stoploss import DynamicStoploss
+
 
 
 
@@ -52,18 +54,18 @@ class HybridAlligatorATRRelaxedStrategy(IStrategy):
         # 전략별 신호 리스트화 (신호별 파라미터는 각 신호에서 처리 or 전달)
         self.entry_signals = [
             AlligatorAtrSignal(),
-            EMACrossoverSignal(),
-            RSIMomentumSignal(),
-            VWMacdSignal(),
+            # EMACrossoverSignal(),
+            # RSIMomentumSignal(),
+            # VWMacdSignal(),
             # ... 필요하면 추가
         ]
         self.exit_signals = [
             TrailingStopExit(),
-            EMACrossExit(),
+            # EMACrossExit(),
             # ... 필요하면 추가
         ]
         self.risk_modules = [
-            DynamicStoploss(),
+             DynamicStoploss(),
             # ... 필요하면 추가
         ]
 

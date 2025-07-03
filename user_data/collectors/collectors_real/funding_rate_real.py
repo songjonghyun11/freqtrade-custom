@@ -2,11 +2,11 @@ import requests
 import logging
 import os
 import json
-from collectors.interfaces import ICollector
-from utils.common import fetch_with_retry
-from models import FundingRateData
+from .interfaces import ICollector
+from ..utils.common import fetch_with_retry
+from .models import FundingRateData
 from pydantic import ValidationError
-from collectors.quality_guard import check_missing
+from .quality_guard import check_missing
 from datetime import datetime
 
 logger = logging.getLogger("collectors.funding_rate")

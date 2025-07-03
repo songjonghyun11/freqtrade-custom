@@ -1,9 +1,9 @@
 import requests, time, logging, os, json
-from collectors.interfaces import ICollector
-from utils.common import fetch_with_retry
-from models import OrderbookData
+from .interfaces import ICollector
+from ..utils.common import fetch_with_retry
+from .models import OrderbookData
 from pydantic import ValidationError
-from collectors.quality_guard import check_missing, check_duplicates
+from .quality_guard import check_missing, check_duplicates
 from datetime import datetime
 
 logger = logging.getLogger("collectors.orderbook")
@@ -27,9 +27,15 @@ class OrderbookCollector(ICollector):
         logger.info("[Collector][orderbook] 시작")
         try:
             def _api_call(timeout):
-                response = requests.get("https://api.binance.com/api/v3/depth?symbol=BTCUSDT&limit=5", timeout=timeout)
+                response = requests.get(f"https://api.binance.com/api/v3/depth?symbol={symbol}USDT&limit=5", timeout=timeout)
                 if response.status_code != 200: raise Exception(f"비정상 응답: {response.status_code}")
-                return [response.json()]
+                data = response.json()
+                return [{
+                    "symbol": symbol,
+                    "bids": data.get("bids", []),
+                    "asks": data.get("asks", []),
+                    "timestamp": int(time.time())
+                }]
 
             fallback = ctx.get("prev_orderbook", [{
                 "symbol": symbol,
@@ -49,18 +55,18 @@ class OrderbookCollector(ICollector):
                 if not check_missing(ob, ["symbol", "bids", "asks", "timestamp"]):
                     logger.warning("[오더북] 결측 필드/스키마 불일치: %s", ob)
                     continue
-                valid_obs.append(ob_obj.dict())
+                valid_obs.append(ob_obj.model_dump())
             valid_obs = check_duplicates(valid_obs, ["symbol", "timestamp"])
 
             save_collector_data(symbol, "orderbook", valid_obs)
             if not valid_obs:
                 write_log(symbol, "orderbook", "수집 데이터 없음/이상치")
                 logger.warning("[오더북] 유효 오더북 없음, fallback 반환")
-                return fallback
+                return fallback[0]
             duration = int((time.time() - start) * 1000)
             logger.info("[Collector][orderbook] 종료, 수집=%d, 실행시간=%dms", len(valid_obs), duration)
             write_log(symbol, "orderbook", f"수집 정상 | 건수: {len(valid_obs)}")
-            return valid_obs
+            return valid_obs[0]
         except Exception as e:
             duration = int((time.time() - start) * 1000)
             logger.error("[Collector][orderbook] 장애 발생: %s, 실행시간=%dms", e, duration)
@@ -75,9 +81,3 @@ class OrderbookCollector(ICollector):
 
 def fetch_orderbook(symbol: str):
     return OrderbookCollector().fetch({"symbol": symbol})
-
-class OrderbookCollector:
-    def __init__(self):
-        pass
-    def fetch(self, symbol: str):
-        return {"symbol": symbol, "bids": [], "asks": [], "timestamp": int(datetime.now().timestamp())}

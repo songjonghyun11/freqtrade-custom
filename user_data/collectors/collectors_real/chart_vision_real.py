@@ -3,9 +3,9 @@ import time
 import logging
 import os
 import json
-from collectors.interfaces import ICollector
-from utils.common import fetch_with_retry
-from collectors.quality_guard import check_missing
+from .interfaces import ICollector
+from ..utils.common import fetch_with_retry
+from .quality_guard import check_missing
 from datetime import datetime
 
 logger = logging.getLogger("collectors.chart_vision")
@@ -79,15 +79,3 @@ def fetch_chart_vision(symbol):
         "chart": {"type": f"{symbol}_test_chart"},
         "timestamp": "2025-01-01"
     }
-class ChartVisionCollector:
-    def __init__(self):
-        pass
-    def fetch(self, symbol: str):
-        return [
-            {
-                "symbol": symbol,
-                "chart_url": "https://example.com/chart",
-                "prediction": "neutral",
-                "timestamp": int(datetime.now().timestamp())
-            }
-        ]

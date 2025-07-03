@@ -1,24 +1,27 @@
 import logging
 import os
 import time
-import logging
 from datetime import datetime, timedelta
-from src.persistence.database_manager import DatabaseManager
-from src.collectors.news import NewsCollector
-from src.collectors.orderbook import OrderbookCollector
-from src.collectors.fear_greed import FearGreedCollector
-from src.collectors.funding_rate import FundingRateCollector
-from src.collectors.social_media import SocialMediaCollector
+from utils.fees import calculate_fee_type
+from utils.slippage import estimate_slippage_advanced
+from models import Order, Position
 
-from src.strategies.hybrid_alligator_atr_strategy import HybridAlligatorATRStrategy
-from src.strategies.rsi_momentum_strategy import RSIMomentumStrategy
-from src.strategies.funding_rate_strategy import FundingRateStrategy
-from src.strategies.news_sentiment_strategy import NewsSentimentStrategy
+from persistence.database_manager import DatabaseManager
+from collectors.news import NewsCollector
+from collectors.orderbook import OrderbookCollector
+from collectors.fear_greed import FearGreedCollector
+from collectors.funding_rate import FundingRateCollector
+from collectors.social_media import SocialMediaCollector
 
-from src.strategies.short_rsi_overbought_strategy import ShortRSIOverboughtStrategy
-from src.strategies.short_funding_rate_strategy import ShortFundingRateStrategy
-from src.strategies.short_orderbook_imbalance_strategy import ShortOrderbookImbalanceStrategy
-from src.strategies.short_news_strategy import ShortNewsStrategy
+from strategies.HybridAlligatorATRRelaxedStrategy import HybridAlligatorATRRelaxedStrategy
+from strategies.rsi_momentum_strategy import RSIMomentumStrategy
+from strategies.funding_rate_strategy import FundingRateStrategy
+from strategies.news_sentiment_strategy import NewsSentimentStrategy
+
+from strategies.short_rsi_overbought_strategy import ShortRSIOverboughtStrategy
+from strategies.short_funding_rate_strategy import ShortFundingRateStrategy
+from strategies.short_orderbook_imbalance_strategy import ShortOrderbookImbalanceStrategy
+from strategies.short_news_strategy import ShortNewsStrategy
 
 # 환경변수 로드
 load_dotenv()
@@ -82,13 +85,13 @@ def backup_db_and_logs():
 # 3. 포지션/주문 상태(실거래소 동기화)
 class PositionManager:
     def __init__(self):
-        self.open_positions = {}  # symbol -> position info
+        self.open_positions = {}  # symbol -> Position 객체
 
     def has_open_position(self, symbol):
         return symbol in self.open_positions
 
-    def open_position(self, symbol, position_info):
-        self.open_positions[symbol] = position_info
+    def open_position(self, symbol, position_obj):
+        self.open_positions[symbol] = position_obj  # dict → DTO
 
     def close_position(self, symbol):
         if symbol in self.open_positions:
@@ -125,23 +128,31 @@ def execute_and_record_trade(signal, dbm):
         return
     try:
         order_id, status, fill_qty, fill_price = execute_broker_trade(signal)
-        if status == "executed":
-            position_manager.open_position(signal.symbol, {
-                "order_id": order_id,
-                "strategy": signal.strategy_name,
-                "direction": signal.direction,
-                "qty": fill_qty,
-                "entry_price": fill_price,
-            })
+
+        fee = calculate_fee_type(fill_qty, fill_price, fee_type="taker")
+        slippage = estimate_slippage_advanced(fill_price, fill_qty, orderbook_depth=1, volatility=0.01)
+        position = Position(
+            symbol=signal.symbol,
+            entry_price=fill_price,
+            size=fill_qty,
+            entry_time=datetime.now(),
+            fee=fee,
+            slippage=slippage,
+            side=signal.direction,
+            status="open"
+        )
+        position_manager.open_position(signal.symbol, position)
+
         dbm.record_trade(
             signal,
             order_id=order_id,
             status=status,
             fill_qty=fill_qty,
             fill_price=fill_price,
+            position=position.__dict__,  # DTO → dict
         )
         logger.info(
-            f"[주문체결] {signal.strategy_name} {signal.direction} {signal.strength} {order_id} {status}"
+            f"[주문체결] {signal.strategy_name} {signal.direction} {signal.strength} {order_id} {status} fee={fee:.4f} slippage={slippage:.4f}"
         )
     except Exception as e:
         logger.error(f"[실체결/DB기록 실패] {e}")
@@ -292,3 +303,10 @@ if __name__ == "__main__":
 
 if __name__ == "__main__":
     send_alert("텔레그램 알림 테스트! 🎉")
+    fee = calculate_fee_type(1, 35000, fee_type="taker")
+    slippage = estimate_slippage_advanced(35000, 1, orderbook_depth=1, volatility=0.01)
+    order = Order("BTC/USDT", 35000, 1, "buy", "market", fee=fee, slippage=slippage)
+    position = Position("BTC/USDT", 35000, 1, "2025-07-01 12:00:00", fee=fee, slippage=slippage)
+
+    print("Order 객체:", order.__dict__)
+    print("Position 객체:", position.__dict__)
