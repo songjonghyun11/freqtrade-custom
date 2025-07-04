@@ -5,6 +5,7 @@
 from utils.fees import calculate_fee_type
 from utils.slippage import estimate_slippage_advanced
 from models import Order, Position
+from utils.metrics import calculate_var, calculate_mdd
 
 # from persistence.database_manager import DatabaseManager
 # from collectors.news import NewsCollector
@@ -303,3 +304,21 @@ if __name__ == "__main__":
     position = Position("BTC/USDT", 35000, 1, "2025-07-01 12:00:00", fee=fee, slippage=slippage)
     print("Order 객체:", order.__dict__)
     print("Position 객체:", position.__dict__)
+
+    # ================= VAR/MDD 테스트 코드 =================
+    # 가상 누적 잔고 리스트 예시 (실전에서는 DB/전략에서 생성)
+    equity_curve = [1000, 1030, 980, 1100, 1200, 900, 850, 890, 950, 1200]
+    var = calculate_var(equity_curve, confidence_level=0.95, window=5)
+    mdd = calculate_mdd(equity_curve)
+    print(f"VAR(5일, 95% 신뢰): {var:.4f}")
+    print(f"MDD(최대 낙폭): {mdd:.4f}")
+
+    # 임계치 예시
+    MDD_THRESHOLD = -0.2
+    VAR_THRESHOLD = -0.1
+
+    # 위험 임계치 초과시 경고 print
+    if mdd < MDD_THRESHOLD:
+        print(f"[경고] MDD가 {MDD_THRESHOLD*100}% 이하! (현재 {mdd*100:.2f}%)")
+    if var < VAR_THRESHOLD:
+        print(f"[경고] VAR가 {VAR_THRESHOLD*100}% 이하! (현재 {var*100:.2f}%)")
