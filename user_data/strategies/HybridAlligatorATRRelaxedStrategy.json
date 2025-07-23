@@ -11,50 +11,50 @@
       "max_open_trades": 3
     },
     "buy": {
-      "atr_period": 14,
-      "donchian_period": 40,
-      "ema_fast_period": 9,
-      "ema_slow_period": 115,
-      "high_lookback": 5,
+      "atr_period": 11,
+      "donchian_period": 24,
+      "ema_fast_period": 30,
+      "ema_slow_period": 64,
+      "high_lookback": 2,
       "rsi_period": 16,
-      "rsi_threshold": 40,
-      "supertrend_atr_multiplier": 4.0882624004734,
-      "supertrend_atr_period": 34,
-      "trend_ema_fast_period": 11,
-      "trend_ema_slow_period": 90,
-      "trend_vol_ma_period": 53,
-      "vol_multiplier": 1.199984293462,
-      "volat_threshold": 0.0334678038061,
-      "vwaprev_period": 34,
-      "vwaprev_threshold": 0.975172137922,
-      "vwmacd_fastperiod": 17,
-      "vwmacd_signalperiod": 29,
-      "vwmacd_slowperiod": 39,
-      "vwmacd_vwap_period": 15
+      "rsi_threshold": 60,
+      "supertrend_atr_multiplier": 3.6119243839085,
+      "supertrend_atr_period": 24,
+      "trend_ema_fast_period": 18,
+      "trend_ema_slow_period": 98,
+      "trend_vol_ma_period": 40,
+      "vol_multiplier": 2.5364607914748,
+      "volat_threshold": 0.0322969505433,
+      "vwaprev_period": 11,
+      "vwaprev_threshold": 0.9735311193903,
+      "vwmacd_fastperiod": 20,
+      "vwmacd_signalperiod": 7,
+      "vwmacd_slowperiod": 21,
+      "vwmacd_vwap_period": 24
     },
     "sell": {
-      "exit_fast_ema": 25,
-      "exit_slow_ema": 30,
-      "loss_sl": 0.9252636596639,
-      "neutral_threshold": 0.2135561420404,
-      "profit_sl": 0.9591138402781,
-      "profit_threshold": 0.0521921879856,
-      "roi_target": 0.050227574084,
-      "sl_atr_multiplier": 1.3370266556099,
-      "stop_threshold": -0.0968188292288,
-      "trail_perc": 0.0418932006029
+      "exit_fast_ema": 12,
+      "exit_slow_ema": 21,
+      "loss_sl": 0.9891230314092,
+      "neutral_threshold": 0.1862416339346,
+      "profit_sl": 0.9662502908947,
+      "profit_threshold": 0.0840342344363,
+      "roi_target": 0.0412908455398,
+      "sl_atr_multiplier": 1.11109190219,
+      "stop_threshold": -0.0831767132313,
+      "trail_perc": 0.0356349059269
     },
     "protection": {},
     "roi": {
-      "0": 0.126,
-      "35": 0.077,
-      "76": 0.028,
-      "195": 0
+      "0": 0.187,
+      "27": 0.051,
+      "63": 0.024,
+      "176": 0
     },
     "stoploss": {
-      "stoploss": -0.334
+      "stoploss": -0.335
     }
   },
   "ft_stratparam_v": 1,
-  "export_time": "2025-06-30 09:15:01.612340+00:00"
+  "export_time": "2025-07-04 10:09:19.718586+00:00"
 }

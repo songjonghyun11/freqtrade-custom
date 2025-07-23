@@ -23,7 +23,16 @@
   "pairlists": [
     {
       "method": "StaticPairList",
-      "pairs": ["BTC/USDT", "ETH/USDT", "ADA/USDT"]
+      "pairs": [
+       "BTC/USDT",
+       "ETH/USDT",
+       "ADA/USDT",
+       "SOL/USDT",
+       "XRP/USDT",
+       "AVAX/USDT",
+       "MATIC/USDT",
+       "LINK/USDT",
+       "LTC/USDT"]
     }
   ],
   "entry_pricing": {

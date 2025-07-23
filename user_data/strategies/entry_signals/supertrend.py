@@ -1,10 +1,17 @@
 import pandas as pd
 import numpy as np
-from interfaces import IEntrySignal
+from interfaces import IEntrySignal, Signal
+from mysignal import Direction
 
 class SupertrendSignal(IEntrySignal):
-    def generate(self, ctx, symbol, params):
-        df = ctx.copy()
+    def generate(self, ctx_or_df, symbol: str, params: dict) -> Signal:
+        if isinstance(ctx_or_df, pd.DataFrame):
+            df = ctx_or_df
+            ctx = {symbol: {"ohlcv": df}}
+        else:
+            ctx = ctx_or_df
+            df = ctx[symbol]["ohlcv"]
+
         atr_period = params.get("atr_period", 10)
         atr_multiplier = params.get("atr_multiplier", 3.0)
 
@@ -25,4 +32,16 @@ class SupertrendSignal(IEntrySignal):
             else:
                 in_uptrend.iloc[i] = in_uptrend.iloc[i - 1]
 
-        return in_uptrend.fillna(False)
+        # 진입 인덱스만 추출
+        indexes = list(df.index[in_uptrend.fillna(False)])
+
+        return Signal(
+            name="supertrend",
+            indexes=indexes,
+            direction=Direction.LONG,
+            score=1.0,
+            meta={
+                "atr_period": atr_period,
+                "atr_multiplier": atr_multiplier,
+            }
+        )

@@ -1,15 +1,20 @@
-class NewsCollector:
-    def __init__(self):
-        pass  # 필요한 초기화 작업
+import os
+import json
 
-    def fetch_news(self, symbol: str):
-        # 8개 코인별 테스트용 더미 뉴스 반환
-        return [
-            {
-                "title": f"테스트 뉴스 for {symbol}",
-                "timestamp": 1710000000,
-                "url": f"https://example.com/{symbol}/news",
-                "source": "test",
-                "content": "테스트 뉴스 컨텐츠입니다.",
-            }
-        ]
+class NewsCollector:
+    def __init__(self, data_dir='data'):
+        self.data_dir = data_dir
+
+    def fetch_news(self, symbol: str, timestamp=None):
+        # 백테스트용: 과거 시점별 뉴스 데이터 파일에서 로드
+        file_path = os.path.join(self.data_dir, symbol, "news.json")
+        if not os.path.isfile(file_path):
+            raise FileNotFoundError(f"{file_path} 파일 없음")
+        news_list = []
+        with open(file_path, "r", encoding="utf-8") as f:
+            for line in f:
+                item = json.loads(line)
+                # timestamp가 없으면 전체 반환, 있으면 해당 시점 뉴스만 반환
+                if timestamp is None or int(item.get("timestamp", 0)) == int(timestamp):
+                    news_list.append(item)
+        return news_list  # 리스트로 반환

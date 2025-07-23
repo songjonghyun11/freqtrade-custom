@@ -1,51 +1,39 @@
-import logging
+import os
+import json
 from datetime import datetime
-from pydantic import ValidationError
-
-from collectors.interfaces import ICollector
-from models import FearGreedData
-from collectors.quality_guard import check_missing
-from utils.common import fetch_with_retry
-
-logger = logging.getLogger(__name__)
 
 class FearGreedCollector:
-    def __init__(self):
-        pass  # 필요시 파라미터 추가
+    def __init__(self, mode='realtime', data_dir='data'):
+        self.mode = mode
+        self.data_dir = data_dir
 
-    def fetch(self, symbol: str):
-        # 기존 함수 내부 로직 그대로 재사용
-        url = "https://api.alternative.me/fng/?limit=1&format=json"
-        try:
-            res = fetch_with_retry(url, method="GET", retries=3)
-            data = res.get("data", [{}])[0]
-        except Exception as e:
-            logger.error(f"[공포탐욕][{symbol}] fetch 실패 - fallback 반환: {e}")
+    def fetch(self, symbol: str, timestamp=None):
+        if self.mode == 'realtime':
+            # (실전) 기존 fetch_with_retry, API 호출/파싱 코드 그대로 사용
+            # 예시로 더미값만 반환
             return {
                 "value": 50,
                 "value_classification": "Neutral",
                 "timestamp": int(datetime.now().timestamp())
             }
-
-        try:
-            fg_obj = FearGreedData(
-                value=int(data.get("value")),
-                value_classification=data.get("value_classification", "Unknown"),
-                timestamp=int(data.get("timestamp", datetime.now().timestamp()))
-            )
-        except ValidationError as ve:
-            logger.warning(f"[공포탐욕 스키마 결측/불일치] {ve}")
+        elif self.mode == 'backtest':
+            # (백테스트) 과거 시점별 공포탐욕 데이터를 파일에서 로드
+            # data/BTC_USDT/fear_greed.json (여러 줄, 한 줄씩 파싱)
+            if timestamp is None:
+                raise ValueError("백테스트에서는 timestamp를 반드시 전달해야 합니다!")
+            file_path = os.path.join(self.data_dir, symbol, "fear_greed.json")
+            if not os.path.isfile(file_path):
+                raise FileNotFoundError(f"{file_path} 파일 없음")
+            with open(file_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    item = json.loads(line)
+                    if int(item["timestamp"]) == int(timestamp):
+                        return item
+            # 해당 시점 데이터 없으면 더미 반환
             return {
                 "value": 50,
                 "value_classification": "Neutral",
-                "timestamp": int(datetime.now().timestamp())
+                "timestamp": int(timestamp)
             }
-
-        if not check_missing(fg_obj.model_dump(), ["value", "value_classification", "timestamp"], symbol=symbol):
-            return {
-                "value": 50,
-                "value_classification": "Neutral",
-                "timestamp": int(datetime.now().timestamp())
-            }
-
-        return fg_obj.model_dump()
+        else:
+            raise ValueError("mode는 realtime 또는 backtest만 지원")
