@@ -1,15 +1,19 @@
-class NewsCollector:
-    def __init__(self):
-        pass  # 필요한 초기화 작업
+# news.py (핵심)
+import os, json
+from typing import List, Dict
 
-    def fetch_news(self, symbol: str):
-        # 8개 코인별 테스트용 더미 뉴스 반환
-        return [
-            {
-                "title": f"테스트 뉴스 for {symbol}",
-                "timestamp": 1710000000,
-                "url": f"https://example.com/{symbol}/news",
-                "source": "test",
-                "content": "테스트 뉴스 컨텐츠입니다.",
-            }
-        ]
+class NewsCollector:
+    def __init__(self, data_dir='data'):
+        self.data_dir = data_dir
+
+    def fetch_news(self, symbol: str, timestamp: int = None) -> List[Dict]:
+        path = os.path.join(self.data_dir, symbol, "news.json")
+        out: List[Dict] = []
+        if os.path.isfile(path):
+            with open(path, "r", encoding="utf-8") as f:
+                for line in f:
+                    it = json.loads(line)
+                    ts = int(it.get("timestamp", 0))
+                    if (timestamp is None) or (ts <= int(timestamp)):
+                        out.append({"title": it.get("title",""), "content": it.get("content",""), "timestamp": ts, "url": it.get("url")})
+        return sorted(out, key=lambda x: x["timestamp"])

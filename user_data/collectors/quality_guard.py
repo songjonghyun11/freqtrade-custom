@@ -4,6 +4,8 @@ import json
 from datetime import datetime
 
 def write_quality_log(symbol, issue_type, message):
+    import os
+    os.makedirs("logs", exist_ok=True)
     log_path = f"logs/{symbol}.log"
     with open(log_path, "a", encoding="utf-8") as logf:
         logf.write(f"[{datetime.utcnow().isoformat()}][quality:{issue_type}] {message}\n")

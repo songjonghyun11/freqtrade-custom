@@ -1,0 +1,8 @@
+{
+  "exchange": {
+    "pair_whitelist": [
+      "ETH/USDT", "SOL/USDT", "XRP/USDT", "ADA/USDT",
+      "AVAX/USDT", "MATIC/USDT", "LINK/USDT", "LTC/USDT"
+    ]
+  }
+}

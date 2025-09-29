@@ -1,0 +1,33 @@
+{
+  "strategy_name": "TestDonchianFearGreedStrategy",
+  "params": {
+    "trailing": {
+      "trailing_stop": false,
+      "trailing_stop_positive": null,
+      "trailing_stop_positive_offset": 0.0,
+      "trailing_only_offset_is_reached": false
+    },
+    "max_open_trades": {
+      "max_open_trades": 3
+    },
+    "buy": {
+      "buy_dc_period": 25,
+      "buy_fg_threshold": 59,
+      "buy_vol_mult": 1.89,
+      "use_fg": 1
+    },
+    "sell": {},
+    "protection": {},
+    "roi": {
+      "0": 0.2,
+      "37": 0.05,
+      "75": 0.014,
+      "190": 0
+    },
+    "stoploss": {
+      "stoploss": -0.071
+    }
+  },
+  "ft_stratparam_v": 1,
+  "export_time": "2025-09-23 23:12:06.829789+00:00"
+}
