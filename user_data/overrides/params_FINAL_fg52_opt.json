@@ -1,12 +1,10 @@
 {
+  "dry_run": true,
+  "max_open_trades": 3,
   "strategy_parameters": {
-    "TestDonchianFearGreedStrategy": {
-      "use_fg": 1,
-      "buy_fg_threshold": 52,
-      "buy_vol_mult": 2.09,
-      "buy_dc_period": 19
-    }
-  },
-  "minimal_roi": { "0": 0.072, "29": 0.035, "80": 0.011, "173": 0 },
-  "stoploss": -0.133
+    "use_fg": 1,
+    "buy_fg_threshold": 52,
+    "buy_dc_period": 19,
+    "buy_vol_mult": 2.09
+  }
 }

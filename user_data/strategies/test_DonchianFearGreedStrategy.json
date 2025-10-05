@@ -11,23 +11,23 @@
       "max_open_trades": 3
     },
     "buy": {
-      "buy_dc_period": 25,
-      "buy_fg_threshold": 59,
-      "buy_vol_mult": 1.89,
+      "buy_dc_period": 15,
+      "buy_fg_threshold": 52,
+      "buy_vol_mult": 1.42,
       "use_fg": 1
     },
     "sell": {},
     "protection": {},
     "roi": {
-      "0": 0.2,
-      "37": 0.05,
-      "75": 0.014,
-      "190": 0
+      "0": 0.153,
+      "33": 0.029,
+      "63": 0.013,
+      "164": 0
     },
     "stoploss": {
-      "stoploss": -0.071
+      "stoploss": -0.081
     }
   },
   "ft_stratparam_v": 1,
-  "export_time": "2025-09-23 23:12:06.829789+00:00"
+  "export_time": "2025-09-29 03:11:15.371755+00:00"
 }

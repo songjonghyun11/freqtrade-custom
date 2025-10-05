@@ -29,8 +29,8 @@ class TestDonchianFearGreedStrategy(IStrategy):
     }
 
     # ---- 하이퍼옵트/실행 파라미터(.value 필수) ----
-    use_fg = IntParameter(0, 1, default=buy_params["use_fg"], space="buy", optimize=True)
-    buy_fg_threshold = IntParameter(45, 80, default=buy_params["buy_fg_threshold"], space="buy", optimize=True)
+    use_fg = IntParameter(0, 1, default=buy_params["use_fg"], space=None, optimize=False)
+    buy_fg_threshold = IntParameter(45, 80, default=buy_params["buy_fg_threshold"], space=None, optimize=False)
     buy_vol_mult = DecimalParameter(1.00, 2.50, default=buy_params["buy_vol_mult"], decimals=2, space="buy", optimize=True)
     buy_dc_period = IntParameter(12, 40, default=buy_params["buy_dc_period"], space="buy", optimize=True)
 

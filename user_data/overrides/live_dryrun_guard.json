@@ -1,0 +1,8 @@
+{
+  "dry_run": true,
+  "max_open_trades": 3,
+  "unfilledtimeout": {
+    "buy": 5,
+    "sell": 5
+  }
+}
