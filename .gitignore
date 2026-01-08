@@ -1,5 +1,22 @@
-venv/
+# venv / python
+venv*/
 __pycache__/
 *.pyc
-.env
-.DS_Store
+
+# freqtrade runtime artifacts
+user_data/logs/
+user_data/tmp*/
+user_data/tradesv3*.sqlite*
+user_data/*.sqlite*
+*.log
+
+# backtest artifacts (너무 큼/너무 많음)
+user_data/backtest_results/
+user_data/backtest/
+*.zip
+*.tgz
+
+# codex/snapshots/local scratch
+_snap_codex_*/
+*_snap_*/
+config.zip
