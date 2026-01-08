@@ -1,0 +1,282 @@
+
+from pathlib import Path
+import pandas as pd
+from freqtrade.strategy import IntParameter, RealParameter
+try:
+    from test_DonchianFearGreedStrategy import TestDonchianFearGreedStrategy as BaseStrategy
+except Exception:
+    try:
+        from TestDonchianFearGreedStrategy import TestDonchianFearGreedStrategy as BaseStrategy
+    except Exception:
+        class BaseStrategy:  # fallback for offline/module-inspection
+            pass
+
+class TestDonchianFearGreedStrategyFG(BaseStrategy):
+    def _p(self, name, default):
+        obj = getattr(self, name, None)
+        val = None
+        if hasattr(obj, "value"):
+            val = obj.value
+        elif isinstance(obj, (int, float)):
+            val = obj
+        return default if val is None else (float(val) if isinstance(val, (int,float)) else default)
+
+    """
+    Donchian+Vol 엔트리에 FG 게이트 추가.
+    - soft_on_nan=True: FG가 NaN이면 통과
+    - fallback_if_all_blocked=True: 베이스 엔트리(pre)>0인데 모두 차단되면 게이트 해제
+    - super()가 0건이면 베이스 인스턴스를 별도로 생성(컴포지션)해 엔트리만 가져오는 폴백 적용
+    """
+    fg_threshold = IntParameter(0, 100, default=52, space="buy")
+    buy_fg_threshold = fg_threshold  # alias for buy-space logging
+    buy_vol_mult  = RealParameter(1.0, 3.0, default=2.10, space="buy")
+
+    soft_on_nan: bool = True
+    fallback_if_all_blocked: bool = True
+    gate_passthrough: bool = False  # True면 게이트 완전 우회(디버그용)
+
+    # --- FG helpers ---
+    def _fg_paths(self):
+        userdir = Path(self.config.get('user_data_dir', 'user_data'))
+        pairdir = userdir / 'collectors' / 'data'
+        return [
+            pairdir / (self.config.get('stake_currency', 'USDT')).lower() / 'fear_greed.json',
+            pairdir / 'fear_greed.json',
+            userdir / 'data' / 'custom' / 'fear_greed.csv',
+            userdir / 'data' / 'custom' / 'fear_greed.json',
+        ]
+
+    def _load_fg_series(self):
+        import json
+        if getattr(self, '_fg_series', None) is not None:
+            return self._fg_series
+        ser = None
+        for path in self._fg_paths():
+            try:
+                if path.suffix == '.csv' and path.exists():
+                    df = pd.read_csv(path)
+                    if 'timestamp' in df.columns:
+                        ts = pd.to_datetime(df['timestamp'], utc=True, errors='coerce')
+                    elif 'date' in df.columns:
+                        ts = pd.to_datetime(df['date'], utc=True, errors='coerce')
+                    else:
+                        continue
+                    valcol = 'value' if 'value' in df.columns else ('fg' if 'fg' in df.columns else None)
+                    if not valcol:
+                        continue
+                    ser = pd.Series(df[valcol].astype(float).values, index=ts).sort_index()
+                    break
+                elif path.suffix == '.json' and path.exists():
+                    data = json.loads(path.read_text(encoding='utf-8'))
+                    items = []
+                    if isinstance(data, dict):
+                        for k, v in data.items():
+                            t = pd.to_datetime(k, utc=True, errors='coerce')
+                            if pd.notna(t):
+                                items.append((t, float(v)))
+                    elif isinstance(data, list):
+                        for row in data:
+                            t = row.get('timestamp') or row.get('date') or row.get('time')
+                            v = row.get('value', row.get('fg', row.get('fear_greed', row.get('score'))))
+                            if t is None or v is None:
+                                continue
+                            t = pd.to_datetime(t, utc=True, errors='coerce')
+                            if pd.notna(t):
+                                items.append((t, float(v)))
+                    if items:
+                        items.sort(key=lambda x: x[0])
+                        idx, vals = zip(*items)
+                        ser = pd.Series(vals, index=pd.DatetimeIndex(idx)).sort_index()
+                        break
+            except Exception:
+                continue
+        if ser is not None and not ser.empty:
+            ser.index = ser.index.normalize()
+            try:
+                print(f"[FG:series] {ser.index.min()} ~ {ser.index.max()} | n={len(ser)} "
+                      f"| min/med/max={float(pd.Series(ser).min()):.1f}/"
+                      f"{float(pd.Series(ser).median()):.1f}/"
+                      f"{float(pd.Series(ser).max()):.1f}")
+            except Exception:
+                print("[FG:series] stats n/a")
+        else:
+            print("[FG:series] empty")
+        self._fg_series = ser
+        return ser
+
+    def _fg_for_dataframe(self, dataframe: pd.DataFrame) -> pd.Series:
+        ser = self._load_fg_series()
+        if ser is None or ser.empty:
+            return pd.Series([float('nan')]*len(dataframe), index=dataframe.index)
+        days = pd.to_datetime(dataframe['date'], utc=True, errors='coerce').dt.normalize()
+        fg = ser.reindex(days, method='ffill')
+        fg.index = dataframe.index
+        return fg
+
+    
+    def _get_base_entry_df(self, dataframe: pd.DataFrame, metadata: dict):
+        """
+        1) BaseStrategy.populate_* 를 *self*에 직접 호출 (엔진 주입 파라미터/DP 그대로 사용)
+        2) 여전히 0이면 composition 폴백
+        """
+        # 1) BaseStrategy on self
+        try:
+            df_ind  = BaseStrategy.populate_indicators(self, dataframe.copy(), metadata)
+            df_base = BaseStrategy.populate_entry_trend(self, df_ind, metadata)
+            import pandas as _pd
+            pre = int(df_base.get('enter_long', _pd.Series(dtype=int)).astype(bool).sum())
+            cols_hint = [c for c in df_base.columns if ('donch' in c.lower() or c.startswith('dc') or 'vol' in c.lower())][:6]
+            print(f"[FG][base] via BaseStrategy(self): pre={pre} | cols_hint={cols_hint}")
+            if pre > 0:
+                return df_base, "base_on_self"
+        except Exception as e:
+            print(f"[FG][base] BaseStrategy(self) failed: {e}")
+
+        # 2) composition fallback (with indicators)
+        try:
+            core = BaseStrategy(self.config)
+            for attr in ('dp','wallets','position_adjustment_enable'):
+                if hasattr(self, attr):
+                    setattr(core, attr, getattr(self, attr))
+            df_ind = core.populate_indicators(dataframe.copy(), metadata)
+            df_comp = core.populate_entry_trend(df_ind, metadata)
+            import pandas as _pd
+            pre_comp = int(df_comp.get('enter_long', _pd.Series(dtype=int)).astype(bool).sum())
+            print(f"[FG][base] via composition: pre={pre_comp}")
+            return df_comp, "compose"
+        except Exception as e:
+            print(f"[FG][base] composition failed: {e}")
+            return dataframe.copy(), "none"
+
+    def populate_entry_trend(self, dataframe: pd.DataFrame, metadata: dict) -> pd.DataFrame:
+        pair = (metadata or {}).get('pair', 'UNKNOWN')
+
+        # 베이스 엔트리 확보(super 우선, 0이면 compose 폴백)
+        df, path = self._get_base_entry_df(dataframe, metadata)
+
+        # strict 3-gate synthesis (donchian & vol & FG) when base creates no entries
+        _enable_strict_3gate = True
+        _base = df.get('enter_long')
+        _base_sum = int(_base.astype(bool).sum()) if _base is not None else 0
+        if _enable_strict_3gate and _base_sum == 0:
+            # 1) donchian & volume
+            _dv_ok = ((df.get('close') > df.get('dc_high')) & df.get('vol_ok').astype(bool)).fillna(False)
+            # 2) FG threshold 결정 (buy_fg_threshold 사용 우선, 아니면 fg_threshold) - ALWAYS AS FLOAT
+
+            _thr_obj_buy = getattr(self, 'buy_fg_threshold', None)
+
+            _thr = None
+
+            try:
+
+                _val = getattr(_thr_obj_buy, 'value', -999)
+
+                if _val != -999:
+
+                    _thr = float(_val)
+
+            except Exception:
+
+                pass
+
+            if _thr is None:
+
+                _thr_obj_def = getattr(self, 'fg_threshold', 52)
+
+                _thr = float(getattr(_thr_obj_def, 'value', _thr_obj_def))
+
+            # 3) FG 시리즈 선택 + 전/후방 채움 + 전/후방 채움 + 전/후방 채움
+            _fg_series = df.get('fg', df.get('fear_greed', df.get('FG')))
+            if _fg_series is None:
+                _fg_ok = False
+            else:
+                _fg_ok = (_fg_series.astype(float).ffill().bfill() >= _thr).fillna(False)
+            # 4) 최종 3중 게이트 합성
+            _pass_mask = (_dv_ok & _fg_ok)
+            _n = int(_pass_mask.sum())
+            if _n > 0:
+                df['enter_long'] = _pass_mask.astype(int)
+                df.loc[_pass_mask, 'enter_tag'] = 'donchian&vol&fg'
+                print(f"[FG][strict] synthesized 3-gate enter_long={_n}, thr={_thr}")
+        # quick sanity: donchian & vol only
+        if {'close','dc_high','vol_ok'}.issubset(df.columns):
+            _ok = ((df['close'] > df['dc_high']) & df['vol_ok'].astype(bool)).fillna(False)
+            print(f"[FG][sanity] donch&vol only sum={int(_ok.sum())}")
+        else:
+            _ok = None
+            print("[FG][sanity] cols missing")
+
+        # --- fallback: base가 enter_long을 0개 돌려줄 때 직접 합성 ---
+        try:
+            _base_sum = int(df.get('enter_long', pd.Series(dtype=int)).astype(bool).sum())
+        except Exception:
+            _base_sum = 0
+        try:
+            _pass_ok = ((df.get('close') > df.get('dc_high')) & df.get('vol_ok').astype(bool)).fillna(False)
+            _pass_n = int(_pass_ok.sum())
+        except Exception:
+            _pass_ok = None
+            _pass_n = 0
+
+        if (_base_sum == 0) and (_pass_ok is not None) and (_pass_n > 0):
+            df['enter_long'] = _pass_ok.astype(int)
+            df.loc[df['enter_long'] == 1, 'enter_tag'] = 'donchian&vol'
+
+        # --- fallback: base가 enter_long을 0개 돌려줄 때 직접 합성 ---
+        try:
+            _base_sum = int(df.get('enter_long', pd.Series(dtype=int)).astype(bool).sum())
+        except Exception:
+            _base_sum = 0
+
+        # 컬럼 보정
+        if 'enter_long' not in df.columns:
+            df['enter_long'] = 0
+
+        base_enter = df['enter_long'].astype(bool)
+        pre = int(base_enter.sum())
+        try:
+            sample_ts = df.loc[base_enter, 'date'].astype(str).head(3).tolist()
+        except Exception:
+            sample_ts = []
+        print(f"[DBG][{pair}] base entries: {pre} | path={path}" + (f" | sample: {sample_ts}" if sample_ts else ""))
+
+        # 게이트 우회 모드면 즉시 반환
+        if self.gate_passthrough:
+            df['enter_long'] = df['enter_long'].fillna(0).astype(int)
+            return df
+
+        # FG 임계값
+        thr_obj = getattr(self, 'fg_threshold', None)
+        thr = getattr(thr_obj, 'value', None)
+        if thr is None:
+            old = getattr(self, 'buy_fg_threshold', -1)
+            thr = getattr(old, 'value', old)
+        try:
+            thr = int(thr)
+        except Exception:
+            thr = -1
+
+        # 게이트 적용
+        if thr is not None and thr >= 0 and pre > 0:
+            fgser = self._fg_for_dataframe(df)
+            na_fg = int(fgser.isna().sum())
+            ok = (fgser >= thr)
+            if self.soft_on_nan:
+                ok = ok | fgser.isna()
+
+            passed = int((base_enter & ok).sum())
+            blocked = int((base_enter & (~ok)).sum())
+            print(f"[FG][{pair}] thr={thr} | pre={pre} | passed={passed} | blocked={blocked} | NaN={na_fg}")
+
+            if self.fallback_if_all_blocked and passed == 0:
+                print(f"[FG][{pair}] Fallback engaged: all blocked → gate OFF for this batch")
+                ok = pd.Series(True, index=df.index)
+
+            df.loc[~ok, 'enter_long'] = 0
+            if 'enter_tag' in df.columns:
+                df.loc[~ok, 'enter_tag'] = None
+        else:
+            print(f"[FG][{pair}] disabled or no base entries (thr={thr}, pre={pre})")
+
+        df['enter_long'] = df['enter_long'].fillna(0).astype(int)
+        return df

@@ -1,0 +1,10 @@
+{
+  "strategy_parameters": {
+    "use_ema_exit": 1,
+    "exit_fast_ema": 9,
+    "exit_slow_ema": 21,
+    "ema_exit_min_hold_min": 30,
+    "ema_exit_loss_thr": -0.005,
+    "ema_exit_price_buf": 0.0015
+  }
+}

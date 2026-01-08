@@ -1,0 +1,7 @@
+{
+  "strategy_parameters": {
+    "use_ema_exit": 1,
+    "ema_exit_loss_thr": 1.0,
+    "ema_exit_min_hold_min": 0
+  }
+}

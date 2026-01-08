@@ -1,0 +1,1 @@
+- 전략: TestDonchianFearGreedStrategy\n- dry-run 중

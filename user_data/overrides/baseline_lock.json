@@ -1,0 +1,16 @@
+{
+  "stoploss": -0.01,
+  "minimal_roi": { "0": 0.01, "10": 0.007, "30": 0.003, "60": 0.002 },
+  "use_exit_signal": true,
+  "exit_profit_only": false,
+  "ignore_roi_if_entry_signal": false,
+
+  "strategy_parameters": {
+    "use_ema_exit": 1,
+    "exit_fast_ema": 3,
+    "exit_slow_ema": 5,
+    "ema_exit_min_hold_min": 15,
+    "ema_exit_price_buf": 0.0,
+    "use_dc_low_break2_exit": 0
+  }
+}

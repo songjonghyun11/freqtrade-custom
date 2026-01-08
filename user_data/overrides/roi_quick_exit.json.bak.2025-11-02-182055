@@ -1,0 +1,8 @@
+{
+  "minimal_roi": { "0": 0.004, "10": 0.002, "30": 0 },
+  "stoploss": -0.01,
+  "trailing_stop": true,
+  "trailing_stop_positive": 0.002,
+  "trailing_stop_positive_offset": 0.003,
+  "trailing_only_offset_is_reached": true
+}

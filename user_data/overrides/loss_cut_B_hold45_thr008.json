@@ -1,0 +1,7 @@
+{
+  "strategy_parameters": {
+    "use_loss_cut_exit": 1,
+    "loss_cut_thr": -0.008,
+    "loss_cut_min_hold_min": 45
+  }
+}

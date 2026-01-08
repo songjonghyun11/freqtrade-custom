@@ -1,0 +1,55 @@
+[TA-Lib 우분투 수동 설치 & 파이썬 연동 매뉴얼 – 트러블슈팅 완전판]
+
+1. 의존성 설치
+sudo apt update
+sudo apt install -y build-essential automake autoconf libtool pkg-config
+
+2. 소스 다운로드 및 빌드/설치
+cd /tmp
+git clone https://github.com/TA-Lib/ta-lib.git
+cd ta-lib
+chmod +x autogen.sh
+./autogen.sh
+./configure --prefix=/usr
+make
+sudo make install
+
+3. so 파일(심볼릭 링크) 확인/복사
+ls /usr/lib/libta-lib.so*
+# 아래처럼 나오면 정상
+# /usr/lib/libta-lib.so -> libta-lib.so.0.0.0
+# /usr/lib/libta-lib.so.0 -> libta-lib.so.0.0.0
+# /usr/lib/libta-lib.so.0.0.0
+
+**[주의: 이름에 _(언더바) 아니고 -(대시)!!]**
+# 실수로 libta_lib.so 가 아니라 반드시 libta-**lib.so** 인지 확인
+# 만약 /usr/lib/libta_lib.so* 파일이 있다면 전부 삭제 (sudo rm -f /usr/lib/libta_lib.so*)
+
+4. 라이브러리 경로 등록 (딱 1회만)
+echo "/usr/lib" | sudo tee /etc/ld.so.conf.d/ta-lib.conf
+sudo ldconfig
+
+5. 가상환경에서 파이썬 패키지 설치/재설치
+source ~/freqtrade/venv311/bin/activate    # (혹은 해당 경로로)
+pip install --force-reinstall TA-Lib
+
+6. 최종 확인
+python -c "import talib; print(talib.__version__)"
+# → 0.6.4 출력되면 성공!
+
+[문제 발생/트러블슈팅]
+- ImportError: libta_lib.so.0: cannot open shared object file... 나오면
+  → **libta-lib.so** 파일이 있는지 ls /usr/lib/libta-lib.so*로 확인
+  → 없으면 make, sudo make install 한 번 더
+  → 있어도 안되면 sudo ldconfig 재실행
+- 파일 이름이 **libta_lib.so**(언더바)로 되어 있으면 삭제하고, 반드시 **libta-lib.so**(대시)로 맞출 것!
+  sudo rm -f /usr/lib/libta_lib.so*
+  sudo rm -f /usr/local/lib/libta_lib.so*
+  sudo rm -f /usr/lib/x86_64-linux-gnu/libta_lib.so*
+- 빌드 후 실제 파일 위치는 /tmp/ta-lib/src/.libs/libta-lib.so*  
+  → 없으면 make clean && make 다시 해볼 것!
+
+- strings /usr/lib/libta-lib.so | grep AVGDEV  결과에서 심볼이 안 나오면 빌드가 꼬인 것.  
+  → /usr/lib에 복사/링크 재설정, make install 재실행.
+
+(이 문서

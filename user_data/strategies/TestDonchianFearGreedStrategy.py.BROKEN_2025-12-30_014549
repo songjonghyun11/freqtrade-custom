@@ -1,0 +1,62 @@
+# -*- coding: utf-8 -*-
+from typing import Dict, Any, List
+from pathlib import Path
+import json
+import pandas as pd
+import numpy as np
+
+from freqtrade.strategy.interface import IStrategy
+from freqtrade.strategy import IntParameter, DecimalParameter, RealParameter
+
+
+class TestDonchianFearGreedStrategy(IStrategy):
+    """
+    Donchian 돌파 + 거래량 배수 + (옵션) Fear&Greed 게이트
+    - 룩어헤드 방지: Donchian 상단은 shift(1)
+    - 파라미터 우선순위:
+        1) config.strategy_parameters[TestDonchianFearGreedStrategy]
+        2) Hyperopt Parameter .value
+        3) buy_params (디폴트)
+    """
+    timeframe = "5m"
+    startup_candle_count = 120
+
+    # ---- 디폴트 파라미터 ----
+    buy_params = {
+        "use_fg": 1,
+        "buy_fg_threshold": -999,  # config/JSON로 주입 권장
+        "buy_vol_mult": 1.95,
+        "buy_dc_period": 19,
+    }
+
+    # ---- 하이퍼옵트/실행 파라미터 ----
+    use_fg = IntParameter(0, 1, default=buy_params["use_fg"], space="buy", optimize=False)
+    buy_fg_threshold = IntParameter(45, 80, default=buy_params["buy_fg_threshold"], space="buy", optimize=False)
+    buy_vol_mult = DecimalParameter(1.00, 3.00, default=buy_params["buy_vol_mult"], decimals=2, space="buy", optimize=True)
+    buy_dc_period = IntParameter(12, 40, default=buy_params["buy_dc_period"], space="buy", optimize=True)
+
+    # ROI/SL (config 오버라이드가 있으면 거기가 우선)
+    minimal_roi = {"0": 0.05, "60": 0.02, "240": 0.0}
+    stoploss = -0.08
+
+    # ---------------- 내부 유틸 ----------------
+    @staticmethod
+    def _pair_safe(pair: str) -> str:
+        return pair.replace("/", "_")
+
+    def _strategy_overrides(self) -> Dict[str, Any]:
+        cfg = self.config or {}
+        sp = cfg.get("strategy_parameters", {})
+        if not isinstance(sp, dict) or not sp:
+            return {}
+
+        # 1) 권장: {"strategy_parameters": {"MyStrategy": {...}}}
+        cls = self.__class__.__name__
+        if cls in sp and isinstance(sp.get(cls), dict):
+            return sp[cls]
+
+        # 2) flat 허용: {"strategy_parameters": {"param": 1, ...}}
+        # 값들에 dict가 섞여 있으면(=다른 전략 nested 가능성) flat로 보지 않고 무시
+        if any(isinstance(v, dict) for v in sp.values()):
+            return {}
+        return sp

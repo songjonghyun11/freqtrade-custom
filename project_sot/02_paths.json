@@ -1,0 +1,1 @@
+{ "strategies_dir":"user_data/strategies", "entry_dir":"user_data/strategies/entry_signals", "exit_dir":"user_data/strategies/exit_signals", "risk_dir":"user_data/strategies/risk", "short_dir":"user_data/strategies/short_signals", "overrides_dir":"user_data/overrides", "config":"user_data/config/config_dev.json" }

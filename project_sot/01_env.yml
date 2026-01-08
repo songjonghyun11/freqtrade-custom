@@ -1,0 +1,1 @@
+os: Ubuntu/WSL2\nroot: ~/freqtrade\nimage: freqtradeorg/freqtrade:stable\ncontainer: ft_dryrun

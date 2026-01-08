@@ -1,0 +1,6 @@
+{
+  "strategy_parameters": {
+    "use_ema_exit": 1,
+    "ema_probe_force_min": 5
+  }
+}

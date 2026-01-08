@@ -1,0 +1,16 @@
+{
+  "use_exit_signal": true,
+  "stoploss": -0.99,
+  "trailing_stop": false,
+  "minimal_roi": { "0": 100 },
+  "strategy_parameters": {
+    "use_dc_low_break2_exit": 0,
+
+    "use_ema_exit": 1,
+    "exit_fast_ema": 3,
+    "exit_slow_ema": 5,
+    "ema_exit_min_hold_min": 0,
+    "ema_exit_loss_thr": 0.0,
+    "ema_exit_price_buf": 0.0
+  }
+}
