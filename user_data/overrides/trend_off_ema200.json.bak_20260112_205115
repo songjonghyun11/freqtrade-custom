@@ -1,0 +1,8 @@
+{
+  "strategy_parameters": {
+    "TestDonchianFearGreedStrategyFG": {
+      "use_trend_filter": 0,
+      "trend_ema_period": 200
+    }
+  }
+}

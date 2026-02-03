@@ -1,0 +1,10 @@
+{
+  "strategy_parameters": {
+    "TestDonchianFearGreedStrategyFG": {
+      "use_fg": 0,
+      "buy_fg_threshold": 0,
+      "buy_vol_mult": 1.0,
+      "buy_dc_period": 19
+    }
+  }
+}
