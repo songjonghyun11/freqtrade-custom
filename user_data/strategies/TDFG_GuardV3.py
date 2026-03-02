@@ -1,0 +1,110 @@
+from __future__ import annotations
+
+import numpy as np
+import pandas as pd
+import talib.abstract as ta
+
+from TDFG_GuardV2 import TDFG_GuardV2
+
+
+class TDFG_GuardV3(TDFG_GuardV2):
+    """
+    GuardV3 = GuardV2 랩퍼 + (포렌식과 동일한 정의로) 가드 피처를 직접 계산해서 entry를 강제 차단.
+    원본(TestDonchianFearGreedStrategy) / GuardV2는 절대 안 건드림.
+    """
+
+    # 포렌식에서 pre=48을 썼으니, 가드용 거래량 통계도 48로 고정(일치 목적)
+    GUARD_VOL_LOOKBACK = 48
+    GUARD_RSI_PERIOD = 14
+
+    @staticmethod
+    def _get_param(obj, default=None):
+        # IntParameter/RealParameter면 .value, 아니면 그대로
+        if obj is None:
+            return default
+        return getattr(obj, "value", obj)
+
+    def populate_indicators(self, dataframe: pd.DataFrame, metadata: dict) -> pd.DataFrame:
+        df = super().populate_indicators(dataframe, metadata)
+
+        # DC period는 전략의 buy_dc_period가 있으면 그걸 쓰고, 없으면 20
+        dc_p = 20
+        if hasattr(self, "buy_dc_period"):
+            try:
+                dc_p = int(self._get_param(getattr(self, "buy_dc_period"), 20))
+            except Exception:
+                dc_p = 20
+
+        # 1) dc_high_prev (이전 캔들 포함 X, shift(1)로 "이전 N개" 기준)
+        df["g_dc_high_prev"] = df["high"].shift(1).rolling(dc_p).max()
+
+        # 2) close_pos = (close-low)/(high-low)
+        rng = (df["high"] - df["low"]).replace(0, np.nan)
+        df["g_close_pos"] = (df["close"] - df["low"]) / rng
+        df["g_close_pos"] = df["g_close_pos"].clip(lower=0.0, upper=1.0).fillna(0.0)
+
+        # 3) vol_ratio / vol_z (lookback=48)
+        lb = self.GUARD_VOL_LOOKBACK
+        v = df["volume"].astype(float)
+        v_mean = v.rolling(lb).mean()
+        v_std = v.rolling(lb).std(ddof=0)
+        df["g_vol_ratio"] = (v / v_mean).replace([np.inf, -np.inf], np.nan)
+        df["g_vol_z"] = ((v - v_mean) / v_std).replace([np.inf, -np.inf], np.nan)
+
+        # 4) rsi14
+        df["g_rsi14"] = ta.RSI(df, timeperiod=self.GUARD_RSI_PERIOD)
+
+        return df
+
+    def populate_entry_trend(self, dataframe: pd.DataFrame, metadata: dict) -> pd.DataFrame:
+        df = super().populate_entry_trend(dataframe, metadata)
+
+        if "enter_long" not in df.columns:
+            return df
+
+        entry = df["enter_long"].fillna(0).astype(int) == 1
+        if entry.sum() == 0:
+            return df
+
+        # --- Guard 파라미터(override에서 주입) 읽기 ---
+        close_pos_min = self._get_param(getattr(self, "guard_close_pos_min", None), None)
+        close_confirm = int(self._get_param(getattr(self, "guard_close_confirm", 0), 0) or 0)
+
+        use_vol = int(self._get_param(getattr(self, "guard_use_vol", 0), 0) or 0)
+        vol_ratio_min = self._get_param(getattr(self, "guard_vol_ratio_min", None), None)
+        vol_z_min = self._get_param(getattr(self, "guard_vol_z_min", None), None)
+
+        use_rsi = int(self._get_param(getattr(self, "guard_use_rsi", 0), 0) or 0)
+        rsi_min = self._get_param(getattr(self, "guard_rsi14_min", None), None)
+
+        guard = pd.Series(True, index=df.index)
+
+        # (A) close_pos 가드
+        if close_pos_min is not None:
+            guard &= (df["g_close_pos"] >= float(close_pos_min))
+
+        # (B) close-confirm (종가가 dc_high_prev 위)
+        # 포렌식에서 breakout_pct가 "close가 dc 위에 있냐"를 강하게 가르니까,
+        # 여기서는 가장 단순하고 재현성 높은 조건을 사용.
+        if close_confirm == 1:
+            guard &= (df["close"] > df["g_dc_high_prev"])
+
+        # (C) 거래량 가드
+        if use_vol == 1:
+            if vol_ratio_min is not None:
+                guard &= (df["g_vol_ratio"] >= float(vol_ratio_min))
+            if vol_z_min is not None:
+                guard &= (df["g_vol_z"] >= float(vol_z_min))
+
+        # (D) RSI 가드
+        if use_rsi == 1 and rsi_min is not None:
+            guard &= (df["g_rsi14"] >= float(rsi_min))
+
+        # --- 실제 차단 적용 ---
+        blocked = entry & (~guard.fillna(False))
+        if blocked.any():
+            df.loc[blocked, "enter_long"] = 0
+            if "enter_tag" in df.columns:
+                df.loc[blocked, "enter_tag"] = "blocked_guardv3"
+
+        return df

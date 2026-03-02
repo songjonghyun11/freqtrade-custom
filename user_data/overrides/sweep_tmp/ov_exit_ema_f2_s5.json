@@ -1,0 +1,1 @@
+{ "strategy_parameters": { "exit_fast_ema": 2, "exit_slow_ema": 5 } }

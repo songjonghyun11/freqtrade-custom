@@ -1,0 +1,6 @@
+{
+  "strategy_parameters": {
+    "exit_fast_ema": 5,
+    "exit_slow_ema": 34
+  }
+}

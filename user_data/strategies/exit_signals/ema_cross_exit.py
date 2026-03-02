@@ -53,13 +53,19 @@ class EMACrossExit(IExitSignal):
         fast_ema = close.ewm(span=fast, adjust=False).mean()
         slow_ema = close.ewm(span=slow, adjust=False).mean()
 
-        # 4) 하향 교차 조건
-        #    이전 캔들: fast >= slow
-        #    현재 캔들: fast < slow
+            # 4) 하향 교차 조건
+    #    이전 캔들: fast >= slow
+    #    현재 캔들: fast < slow
         cond_now = fast_ema < slow_ema
         cond_prev = fast_ema.shift(1) >= slow_ema.shift(1)
 
-        exit_cross = (cond_now & cond_prev).fillna(False)
+         # 교차를 놓친 경우 대비:
+          # - fast < slow 상태가 연속으로 이어져도 EXIT를 허용
+         #   (이전 캔들에서 이미 fast<slow 였고, 이번 캔들도 fast<slow 이면 청산)
+        cond_below_prev = fast_ema.shift(1) < slow_ema.shift(1)
+
+        exit_cross = ((cond_now & cond_prev) | (cond_now & cond_below_prev)).fillna(False)
+
 
         # 5) 인덱스는 df.index 그대로 사용 (DatetimeIndex 유지)
         indexes = list(df.index[exit_cross])

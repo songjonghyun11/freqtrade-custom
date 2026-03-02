@@ -1,0 +1,246 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+cd "$HOME/freqtrade"
+
+TS="$(date +%Y%m%d_%H%M%S)"
+OUTDIR="user_data/backtest_results/sweep_logs"
+mkdir -p "$OUTDIR"
+
+PY="$HOME/freqtrade/venv311/bin/python"
+[ -x "$PY" ] || PY=python3
+
+need_cmd(){ command -v "$1" >/dev/null 2>&1 || { echo "ERROR: missing cmd: $1"; exit 2; }; }
+need_cmd docker; need_cmd find; need_cmd comm; need_cmd mktemp; need_cmd grep; need_cmd ls; need_cmd head; need_cmd sed
+
+IMG="freqtradeorg/freqtrade:stable"
+STRATEGY="TDFG_GuardV4"
+TIMERANGE="${TIMERANGE:-20250101-20260210}"
+
+CONFIG_BASE="/freqtrade/user_data/config/config_spot.json"
+OV_EXIT="/freqtrade/user_data/overrides/exit_baseline.json"
+OV_V2OFF="/freqtrade/user_data/overrides/guard_v2_off.json"
+OV_GUARD="/freqtrade/user_data/overrides/guard_v4_closepos090_plus_vol_rsi70.json"
+
+THRS=(-0.002 -0.003 -0.004 -0.005 -0.006 -0.008 -0.010)
+
+TMPDIR_HOST="user_data/overrides/sweep_tmp"
+mkdir -p "$TMPDIR_HOST"
+
+CSV="$OUTDIR/_ema_loss_thr_sweep_${TIMERANGE}_${TS}.csv"
+echo "thr,zip,trades,profit_abs,dd_usdt,dd_pct,ema_thr_inzip,ema_cnt,ema_sum,sl_cnt,sl_sum,roi_cnt,roi_sum,trail_cnt,trail_sum" > "$CSV"
+
+list_zip_names(){ find user_data/backtest_results -maxdepth 1 -type f -name 'backtest-result-*.zip' -printf '%f\n' | sort; }
+pick_new_zip(){ comm -13 "$1" "$2" | while read -r f; do echo "user_data/backtest_results/$f"; done; }
+
+make_thr_override() {
+  local thr="$1"
+  local tag
+  tag="$(echo "$thr" | sed 's/-/n/g; s/\./p/g')"
+  local f_host="${TMPDIR_HOST}/exit_ema_loss_thr_${tag}.json"
+  cat > "$f_host" <<JSON
+{
+  "strategy_parameters": {
+    "ema_exit_loss_thr": ${thr}
+  }
+}
+JSON
+  echo "/freqtrade/${f_host}"
+}
+
+# ✅ summary 라인 안전 파싱(환경변수로 전달)
+extract_summary_metrics() {
+  local log="$1"
+  local line
+  line="$(grep -m1 -E '│[[:space:]]*'"$STRATEGY"'[[:space:]]*│|\|[[:space:]]*'"$STRATEGY"'[[:space:]]*\|' "$log" || true)"
+  if [ -z "${line:-}" ]; then
+    echo "TRADES=? PROFIT_ABS=? DD_USDT=? DD_PCT=?"
+    return 0
+  fi
+  LINE="$line" "$PY" - <<'PY'
+import os, re
+line=os.environ["LINE"].replace("│","|")
+parts=[p.strip() for p in line.split("|") if p.strip()]
+trades = parts[1] if len(parts)>1 else "?"
+profit_abs = parts[3] if len(parts)>3 else "?"
+dd_usdt, dd_pct = "?", "?"
+if len(parts) >= 8:
+    m=re.search(r'([0-9.]+)\s*USDT.*?([0-9.]+)%', parts[7])
+    if m:
+        dd_usdt, dd_pct = m.group(1), m.group(2)
+print(f"TRADES={trades} PROFIT_ABS={profit_abs} DD_USDT={dd_usdt} DD_PCT={dd_pct}")
+PY
+}
+
+# zip trades에서 exit_reason 합계 + zip config의 ema_exit_loss_thr 확인
+exit_reason_stats() {
+  local zip="$1"
+  export ZIP="$zip"
+  "$PY" - <<'PY'
+import os, json, zipfile, sys
+from collections import defaultdict
+
+zip_path=os.environ.get("ZIP")
+if not zip_path or not os.path.exists(zip_path):
+    print("EMA_THR=? EMA_CNT=? EMA_SUM=? SL_CNT=? SL_SUM=? ROI_CNT=? ROI_SUM=? TR_CNT=? TR_SUM=?")
+    sys.exit(0)
+
+def find_trades(obj):
+    if isinstance(obj, dict):
+        for k,v in obj.items():
+            if k=="trades" and isinstance(v,list) and v and isinstance(v[0],dict): return v
+            r=find_trades(v)
+            if r: return r
+    if isinstance(obj, list):
+        for it in obj:
+            r=find_trades(it)
+            if r: return r
+    return None
+
+def read_json(zf, name): return json.loads(zf.read(name))
+
+ema_thr="?"
+with zipfile.ZipFile(zip_path) as z:
+    cfgs=[n for n in z.namelist() if n.endswith("_config.json")]
+    if cfgs:
+        cfg=read_json(z, max(cfgs, key=lambda n: z.getinfo(n).file_size))
+        sp=cfg.get("strategy_parameters") or {}
+        ema_thr=sp.get("ema_exit_loss_thr","?")
+
+    trades=None
+    js=[n for n in z.namelist() if n.endswith(".json") and not n.endswith("_config.json")]
+    js.sort(key=lambda n: z.getinfo(n).file_size, reverse=True)
+    for n in js[:25]:
+        try: data=read_json(z,n)
+        except Exception: continue
+        trades=find_trades(data)
+        if trades: break
+
+if not trades:
+    print(f"EMA_THR={ema_thr} EMA_CNT=? EMA_SUM=? SL_CNT=? SL_SUM=? ROI_CNT=? ROI_SUM=? TR_CNT=? TR_SUM=?")
+    sys.exit(0)
+
+agg_cnt=defaultdict(int); agg_sum=defaultdict(float)
+for t in trades:
+    er=t.get("exit_reason") or t.get("sell_reason") or t.get("exit_tag") or "unknown"
+    pa=t.get("profit_abs")
+    try: pa=float(pa) if pa is not None else None
+    except Exception: pa=None
+    if pa is None: 
+        continue
+    agg_cnt[er]+=1
+    agg_sum[er]+=pa
+
+def g(k): return agg_cnt.get(k,0), agg_sum.get(k,0.0)
+
+ema_cnt, ema_sum = g("ema_cross_exit")
+sl_cnt, sl_sum   = g("stop_loss")
+roi_cnt, roi_sum = g("roi")
+tr_cnt, tr_sum   = g("trailing_stop_loss")
+
+print(f"EMA_THR={ema_thr} EMA_CNT={ema_cnt} EMA_SUM={ema_sum:.6f} SL_CNT={sl_cnt} SL_SUM={sl_sum:.6f} ROI_CNT={roi_cnt} ROI_SUM={roi_sum:.6f} TR_CNT={tr_cnt} TR_SUM={tr_sum:.6f}")
+PY
+}
+
+run_case() {
+  local thr="$1"
+  echo ""
+  echo "==== THR_${thr} (TIMERANGE=$TIMERANGE) ===="
+
+  local ov_thr
+  ov_thr="$(make_thr_override "$thr")"
+
+  local before after
+  before="$(mktemp)"; after="$(mktemp)"
+  list_zip_names > "$before"
+
+  local log="${OUTDIR}/bt_thrSweep_${TIMERANGE}_${STRATEGY}_thr$(echo "$thr" | sed 's/-/n/g; s/\./p/g')_${TS}.log"
+
+  local -a CMD
+  CMD=(docker run --rm -v "$(pwd)/user_data:/freqtrade/user_data" "$IMG" backtesting
+    --config "$CONFIG_BASE"
+    --config "$OV_EXIT"
+    --config "$OV_V2OFF"
+    --config "$OV_GUARD"
+    --config "$ov_thr"
+    --strategy "$STRATEGY"
+    --strategy-path /freqtrade/user_data/strategies
+    --timerange "$TIMERANGE"
+  )
+
+  set +e
+  "${CMD[@]}" > "$log" 2>&1
+  local rc=$?
+  set -e
+  echo "RC=$rc"
+  echo "LOG=$log"
+
+  list_zip_names > "$after"
+  mapfile -t newzips < <(pick_new_zip "$before" "$after" || true)
+  rm -f "$before" "$after"
+
+  if [ "${#newzips[@]}" -eq 0 ]; then
+    echo "ERROR: no new zip detected."
+    return 3
+  fi
+
+  local zip
+  zip="$(ls -1t "${newzips[@]}" 2>/dev/null | head -n1)"
+  echo "ZIP=$zip"
+
+  local sm
+  sm="$(extract_summary_metrics "$log")"
+  echo "SUMMARY_METRICS: $sm"
+
+  local es
+  es="$(exit_reason_stats "$zip")"
+  echo "EXIT_STATS: $es"
+
+  local trades profit_abs dd_usdt dd_pct
+  trades="$(echo "$sm" | sed -n 's/.*TRADES=\([^ ]*\).*/\1/p')"
+  profit_abs="$(echo "$sm" | sed -n 's/.*PROFIT_ABS=\([^ ]*\).*/\1/p')"
+  dd_usdt="$(echo "$sm" | sed -n 's/.*DD_USDT=\([^ ]*\).*/\1/p')"
+  dd_pct="$(echo "$sm" | sed -n 's/.*DD_PCT=\([^ ]*\).*/\1/p')"
+
+  local ema_thr ema_cnt ema_sum sl_cnt sl_sum roi_cnt roi_sum tr_cnt tr_sum
+  ema_thr="$(echo "$es" | sed -n 's/.*EMA_THR=\([^ ]*\).*/\1/p')"
+  ema_cnt="$(echo "$es" | sed -n 's/.*EMA_CNT=\([^ ]*\).*/\1/p')"
+  ema_sum="$(echo "$es" | sed -n 's/.*EMA_SUM=\([^ ]*\).*/\1/p')"
+  sl_cnt="$(echo "$es" | sed -n 's/.*SL_CNT=\([^ ]*\).*/\1/p')"
+  sl_sum="$(echo "$es" | sed -n 's/.*SL_SUM=\([^ ]*\).*/\1/p')"
+  roi_cnt="$(echo "$es" | sed -n 's/.*ROI_CNT=\([^ ]*\).*/\1/p')"
+  roi_sum="$(echo "$es" | sed -n 's/.*ROI_SUM=\([^ ]*\).*/\1/p')"
+  tr_cnt="$(echo "$es" | sed -n 's/.*TR_CNT=\([^ ]*\).*/\1/p')"
+  tr_sum="$(echo "$es" | sed -n 's/.*TR_SUM=\([^ ]*\).*/\1/p')"
+
+  echo "${thr},${zip},${trades},${profit_abs},${dd_usdt},${dd_pct},${ema_thr},${ema_cnt},${ema_sum},${sl_cnt},${sl_sum},${roi_cnt},${roi_sum},${tr_cnt},${tr_sum}" >> "$CSV"
+}
+
+echo "START: ema_exit_loss_thr sweep | STRATEGY=$STRATEGY TIMERANGE=$TIMERANGE"
+echo "LOCKED GUARD: close_pos=0.90 + RSI70 + VOL(3.5/2.0) + V2 OFF"
+echo "THRS=${THRS[*]}"
+echo "CSV=$CSV"
+
+for thr in "${THRS[@]}"; do
+  run_case "$thr"
+done
+
+echo ""
+echo "DONE. CSV=$CSV"
+echo "TOP5 by profit_abs (higher is better):"
+"$PY" - <<PY
+import csv
+p="$CSV"
+rows=[]
+with open(p,newline='',encoding='utf-8') as f:
+    r=csv.DictReader(f)
+    for row in r:
+        try: row["profit_abs"]=float(row["profit_abs"])
+        except: row["profit_abs"]=-1e18
+        try: row["dd_usdt"]=float(row["dd_usdt"])
+        except: row["dd_usdt"]=1e18
+        rows.append(row)
+rows.sort(key=lambda x:(x["profit_abs"],-x["dd_usdt"]), reverse=True)
+for i,row in enumerate(rows[:5],1):
+    print(f"{i}) thr={row['thr']} profit_abs={row['profit_abs']:.3f} dd={row['dd_usdt']} trades={row['trades']} ema_thr_inzip={row['ema_thr_inzip']} ema(sum={row['ema_sum']}) sl(sum={row['sl_sum']})")
+PY

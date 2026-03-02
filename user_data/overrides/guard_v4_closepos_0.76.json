@@ -1,0 +1,10 @@
+{
+  "strategy_parameters": {
+    "TDFG_GuardV4": {
+      "guard_close_confirm": 0,
+      "guard_close_pos_min": 0.76,
+      "guard_use_vol": 0,
+      "guard_use_rsi": 0
+    }
+  }
+}

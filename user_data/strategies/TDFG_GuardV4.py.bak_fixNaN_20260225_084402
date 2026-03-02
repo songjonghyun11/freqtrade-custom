@@ -1,0 +1,191 @@
+from __future__ import annotations
+
+import numpy as np
+import pandas as pd
+import talib.abstract as ta
+
+from TDFG_GuardV2 import TDFG_GuardV2
+
+
+class TDFG_GuardV4(TDFG_GuardV2):
+    """
+    GuardV4:
+    - 포렌식과 동일한 정의로 가드 피처 계산
+    - buy / enter_long 어느 쪽이든 실제 엔트리를 강제 차단
+    - guard 파라미터는 self.config['strategy_parameters'][<StrategyName>] 에서 직접 읽음 (setattr 의존 제거)
+    - guard_kill_all=1 이면 엔트리 100% 차단(산티체크용)
+    """
+
+    GUARD_VOL_LOOKBACK = 48
+    GUARD_RSI_PERIOD = 14
+
+    def _guard_cfg(self) -> dict:
+        # strategy_parameters가 setattr로 안 들어오는 케이스를 방지: config에서 직접 읽는다.
+        if hasattr(self, "_guard_cfg_cache") and isinstance(self._guard_cfg_cache, dict):
+            return self._guard_cfg_cache
+
+        cfg = {}
+        try:
+            sp = (self.config or {}).get("strategy_parameters") or {}
+            # key는 보통 클래스명
+            cfg = sp.get(self.__class__.__name__) or sp.get("TDFG_GuardV4") or {}
+            if not isinstance(cfg, dict):
+                cfg = {}
+        except Exception:
+            cfg = {}
+
+        self._guard_cfg_cache = cfg
+        return cfg
+
+    @staticmethod
+    def _to_int(v, default=0) -> int:
+        try:
+            return int(v)
+        except Exception:
+            return int(default)
+
+    @staticmethod
+    def _to_float(v):
+        if v is None:
+            return None
+        try:
+            return float(v)
+        except Exception:
+            return None
+
+    def populate_indicators(self, dataframe: pd.DataFrame, metadata: dict) -> pd.DataFrame:
+        df = super().populate_indicators(dataframe, metadata)
+
+        # DC period는 전략 파라미터가 있으면 그걸 우선
+        dc_p = 20
+        if hasattr(self, "buy_dc_period"):
+            try:
+                dc_p = int(getattr(getattr(self, "buy_dc_period"), "value", getattr(self, "buy_dc_period")))
+            except Exception:
+                dc_p = 20
+
+        df["g_dc_high_prev"] = df["high"].shift(1).rolling(dc_p).max()
+
+        # breakout strength vs previous DC high (close-confirm 강화용)
+        df["g_breakout_margin"] = ((df["close"] / df["g_dc_high_prev"]) - 1.0).replace([np.inf, -np.inf], np.nan).fillna(0.0)
+
+        rng = (df["high"] - df["low"]).replace(0, np.nan)
+        df["g_close_pos"] = ((df["close"] - df["low"]) / rng).clip(0.0, 1.0).fillna(0.0)
+
+        df["g_range_pct"] = ((df["high"] - df["low"]) / df["close"]).replace([np.inf, -np.inf], np.nan).fillna(0.0)
+
+        # upper wick ratio (whipsaw / fake-breakout filter)
+        rng = (df["high"] - df["low"]).replace(0, np.nan)
+        upper = (df["high"] - df[["open","close"]].max(axis=1))
+        df["g_upper_wick_ratio"] = (upper / rng).replace([np.inf,-np.inf], np.nan).fillna(0.0)
+
+        lb = self.GUARD_VOL_LOOKBACK
+        v = df["volume"].astype(float)
+        v_mean = v.rolling(lb).mean()
+        v_std = v.rolling(lb).std(ddof=0)
+
+        df["g_vol_ratio"] = (v / v_mean).replace([np.inf, -np.inf], np.nan)
+        df["g_vol_z"] = ((v - v_mean) / v_std).replace([np.inf, -np.inf], np.nan)
+
+        df["g_rsi14"] = ta.RSI(df, timeperiod=self.GUARD_RSI_PERIOD)
+
+        df["g_atr14"] = ta.ATR(df, timeperiod=14)
+        df["g_atr_pct"] = (df["g_atr14"] / df["close"]).replace([np.inf,-np.inf], np.nan).fillna(0.0)
+
+        return df
+
+    def _apply_guard(self, df: pd.DataFrame, entry_col: str) -> pd.DataFrame:
+        if entry_col not in df.columns:
+            return df
+
+        entry = df[entry_col].fillna(0).astype(int) == 1
+        if int(entry.sum()) == 0:
+            return df
+
+        cfg = self._guard_cfg()
+
+        # 🔥 산티체크 킬스위치: 이게 1인데도 trades가 나오면 "가드가 아예 실행 안 됨"이 확정
+        kill_all = self._to_int(cfg.get("guard_kill_all", 0), 0)
+        if kill_all == 1:
+            df.loc[entry, entry_col] = 0
+            for tc in ("enter_tag", "buy_tag"):
+                if tc in df.columns:
+                    df.loc[entry, tc] = "blocked_guardv4_killall"
+            return df
+
+        close_pos_min = self._to_float(cfg.get("guard_close_pos_min", None))
+        close_confirm = self._to_int(cfg.get("guard_close_confirm", 0), 0)
+        breakout_margin_min = self._to_float(cfg.get("guard_breakout_margin_min", None))
+        breakout_hold_candles = self._to_int(cfg.get("guard_breakout_hold_candles", 0), 0)
+
+        use_vol = self._to_int(cfg.get("guard_use_vol", 0), 0)
+        vol_ratio_min = self._to_float(cfg.get("guard_vol_ratio_min", None))
+        vol_z_min = self._to_float(cfg.get("guard_vol_z_min", None))
+
+        use_rsi = self._to_int(cfg.get("guard_use_rsi", 0), 0)
+        rsi_min = self._to_float(cfg.get("guard_rsi14_min", None))
+        atr_pct_max = self._to_float(cfg.get("guard_atr_pct_max", None))
+        range_pct_max = self._to_float(cfg.get("guard_range_pct_max", None))
+        upper_wick_max = self._to_float(cfg.get("guard_upper_wick_ratio_max", None))
+
+        guard = pd.Series(True, index=df.index)
+
+        if close_pos_min is not None:
+            guard &= (df["g_close_pos"] >= close_pos_min)
+
+        if close_confirm == 1:
+            guard &= (df["close"] > df["g_dc_high_prev"])
+
+        if breakout_margin_min is not None:
+            guard &= (df["g_breakout_margin"] >= breakout_margin_min)
+
+        # breakout hold confirmation (delay entry): require previous N candles to satisfy breakout
+        if breakout_hold_candles >= 1:
+            if breakout_margin_min is not None:
+                ok_now = (df["g_breakout_margin"] >= breakout_margin_min)
+            else:
+                ok_now = (df["close"] > df["g_dc_high_prev"])
+            prev_ok = (
+                ok_now.shift(1)
+                .astype(int)
+                .rolling(int(breakout_hold_candles))
+                .min()
+                .fillna(0)
+                .astype(bool)
+            )
+            guard &= prev_ok
+
+        if use_vol == 1:
+            if vol_ratio_min is not None:
+                guard &= (df["g_vol_ratio"] >= vol_ratio_min)
+            if vol_z_min is not None:
+                guard &= (df["g_vol_z"] >= vol_z_min)
+
+        if use_rsi == 1 and rsi_min is not None:
+            guard &= (df["g_rsi14"] >= rsi_min)
+
+        blocked = entry & (~guard.fillna(False))
+        if blocked.any():
+            df.loc[blocked, entry_col] = 0
+            for tc in ("enter_tag", "buy_tag"):
+                if tc in df.columns:
+                    df.loc[blocked, tc] = "blocked_guardv4"
+
+        return df
+
+    # ✅ 신버전(entry) 경로
+    def populate_entry_trend(self, dataframe: pd.DataFrame, metadata: dict) -> pd.DataFrame:
+        try:
+            df = super().populate_entry_trend(dataframe, metadata)
+        except AttributeError:
+            # 구버전 전략일 때
+            df = super().populate_buy_trend(dataframe, metadata)  # type: ignore
+        return self._apply_guard(df, "enter_long")
+
+    # ✅ 구버전(buy) 경로까지 강제 커버
+    def populate_buy_trend(self, dataframe: pd.DataFrame, metadata: dict) -> pd.DataFrame:
+        try:
+            df = super().populate_buy_trend(dataframe, metadata)  # type: ignore
+        except AttributeError:
+            df = super().populate_entry_trend(dataframe, metadata)
+        return self._apply_guard(df, "buy")

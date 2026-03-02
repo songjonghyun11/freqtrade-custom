@@ -40,9 +40,12 @@ class TestDonchianFearGreedStrategy(IStrategy):
     stoploss = -0.08
 
     # ---------------- 내부 유틸 ----------------
+    def informative_pairs(self):
+        # ✅ 레짐 필터용 BTC 데이터
+        return [("BTC/USDT", self.timeframe)]
     @staticmethod
     def _pair_safe(pair: str) -> str:
-        return pair.replace("/", "_")
+        return pair.replace("/", "_").replace(":", "_")
 
     def _strategy_overrides(self) -> Dict[str, Any]:
         cfg = self.config or {}
@@ -228,15 +231,61 @@ class TestDonchianFearGreedStrategy(IStrategy):
         # 룩어헤드 방지: 확정된 직전캔들로 판단
         cond_trend = (df["close"].shift(1) > df["trend_ema"].shift(1)) if use_trend else True
 
+        # 과열(Overheat) 필터:
+        # - 최근 over_lb 캔들 최저가(roll_low) 대비 "직전 종가" 상승률(runup)가 over_thr 초과면 진입 금지
+        # - 룩어헤드 방지: roll_low/close 모두 shift(1) 기반으로 계산
+        use_overheat = int(self._entry_param("use_overheat_filter", int) or 0) == 1
+        over_lb = int(self._entry_param("overheat_lookback", int) or 48)
+        over_thr = float(self._entry_param("overheat_thr", float) or 0.04)
+
+        cond_overheat_ok = True
+        if use_overheat:
+            src_low = df["low"] if "low" in df.columns else df["close"]
+            roll_low = src_low.rolling(over_lb, min_periods=over_lb).min().shift(1)
+            roll_low = roll_low.replace(0, np.nan)
+
+            close_prev = df["close"].shift(1)
+            runup = (close_prev / roll_low) - 1.0
+
+            # over_thr 초과면 과열 → 진입 차단
+            cond_overheat_ok = (runup <= over_thr) | roll_low.isna()
+
+            # 디버그용 컬럼 (불편하면 나중에 제거 가능)
+            df["overheat_runup"] = runup
+            df["overheat_ok"] = cond_overheat_ok.astype(int)
+
         # 최종 엔트리
-        final_entry = (cond_dc & cond_vol & cond_fg & cond_trend)
+        # ===== 시장 급락 레짐(BTC) 필터 =====
+        use_regime = int(self._entry_param('use_regime_filter', int) or 0) == 1
+        cond_regime_ok = True
+        if use_regime and hasattr(self, 'dp') and self.dp is not None and 'date' in df.columns:
+            try:
+                rp = str(self._entry_param('regime_pair', str) or 'BTC/USDT')
+                lb = int(self._entry_param('regime_lookback', int) or 48)
+                thr = float(self._entry_param('regime_drop_thr', float) or 0.02)
+                bdf = self.dp.get_pair_dataframe(rp, self.timeframe)
+                if bdf is not None and not bdf.empty and 'date' in bdf.columns and 'close' in bdf.columns:
+                    b = bdf[['date','close']].copy()
+                    b['close'] = b['close'].astype(float)
+                    b['btc_ret_lb'] = (b['close'] / b['close'].shift(lb) - 1.0)
+                    b = b[['date','btc_ret_lb']].sort_values('date')
+                    df = df.sort_values('date')
+                    df = pd.merge_asof(df, b, on='date', direction='backward')
+                    cond_regime_ok = (df['btc_ret_lb'] >= -thr) | df['btc_ret_lb'].isna()
+                    df['regime_ok'] = cond_regime_ok.astype(int)
+            except Exception:
+                cond_regime_ok = True
+
+        final_entry = (cond_dc & cond_vol & cond_fg & cond_trend & cond_overheat_ok & cond_regime_ok)
 
         df['buy'] = 0
         df.loc[final_entry, 'buy'] = 1
 
         if 'enter_tag' not in df.columns:
             df['enter_tag'] = np.nan
-        tag = 'donchian&vol' + ('&fg' if use_fg else '')
+        
+        
+        tag = 'donchian&vol' + ('&fg' if use_fg else '') + ('&heat' if use_overheat else '') + ('&reg' if use_regime else '')
         df.loc[final_entry, 'enter_tag'] = tag
 
         return df
@@ -255,7 +304,9 @@ class TestDonchianFearGreedStrategy(IStrategy):
             df.loc[cond_exit, "sell"] = 1
             df.loc[cond_exit, "sell_tag"] = "dc_low_break2"
             df.loc[cond_exit, "exit_tag"] = "dc_low_break2"
-        return df# ---------------- 보호장치 ----------------
+        return df
+
+    # ---------------- 보호장치 ----------------
     @property
     def protections(self):
         return [
@@ -276,6 +327,92 @@ class TestDonchianFearGreedStrategy(IStrategy):
                 pass
             self._fg_debug_once = True
         return eff
+    
+    def confirm_trade_entry(
+        self,
+        pair,
+        order_type,
+        amount,
+        rate,
+        time_in_force,
+        current_time,
+        **kwargs,
+    ) -> bool:
+        """
+        추가 ENTRY 필터:
+        - 단기 과열(최근 N캔들 대비 과도한 상승) 구간에서는 돌파 진입을 막는다.
+        - False breakout + 즉시 -1% 스탑 맞는 구간을 줄이는 게 목적.
+        """
+
+        # 1) 전략 파라미터 읽기 (없으면 기본값)
+        try:
+            sp = (self.config or {}).get("strategy_parameters") or {}
+        except Exception:
+            sp = {}
+
+        # 토글 스위치: 0이면 아무것도 안 함
+        use_overheat = int(sp.get("use_overheat_filter") or 0)
+        if use_overheat != 1:
+            return True  # 필터 OFF면 진입 허용
+
+        # 2) dp 없으면 필터 못 씀 → 진입 허용 (fail open)
+        if not hasattr(self, "dp") or self.dp is None:
+            return True
+
+        # 기본값: 4시간(48캔들), 4% 과열 기준
+        try:
+            lookback = int(sp.get("overheat_lookback") or 48)
+        except Exception:
+            lookback = 48
+
+        try:
+            thr = float(sp.get("overheat_thr") or 0.04)  # 4%
+        except Exception:
+            thr = 0.04
+
+        # 3) 히스토리 가져오기
+        try:
+            df, _ = self.dp.get_analyzed_dataframe(pair, self.timeframe)
+        except Exception:
+            return True
+
+        if df is None or df.empty or "close" not in df.columns:
+            return True
+
+        # 스누핑 방지: current_time 까지만 사용
+        if "date" in df.columns:
+            df2 = df[df["date"] <= current_time].copy()
+        else:
+            df2 = df.copy()
+
+        if len(df2) < max(lookback, 20):
+            # 히스토리가 너무 짧으면 필터 적용하지 않음
+            return True
+
+        close = df2["close"].astype(float)
+
+        # 4) lookback 구간에서 현재까지의 최소값/현재값 비교
+        recent = close.iloc[-lookback:]
+        if recent.empty:
+            return True
+
+        curr = recent.iloc[-1]
+        min_recent = recent.min()
+
+        if min_recent <= 0:
+            # 데이터 이상 방지
+            return True
+
+        run_up = (curr / min_recent) - 1.0
+
+        # 5) 과열이면 진입 차단
+        if run_up > thr:
+            # print(f"[{pair}] overheat filter block: run_up={run_up:.3%}")  # 필요하면 디버그
+            return False
+
+        # 나머지는 진입 허용
+        return True
+   
     def custom_exit(self, pair, trade, current_time, current_rate, current_profit, **kwargs):
         """EMA 하락 교차 기반 손실방어 청산(최종/스누핑 방지).
         - strategy_parameters에서 값 읽음(백테/드라이런 일치)
@@ -308,7 +445,8 @@ class TestDonchianFearGreedStrategy(IStrategy):
                 return None
 
             # 최소 보유시간(분)
-            min_hold_min = int(sp.get("ema_exit_min_hold_min") or 120)
+            raw_min_hold = sp.get("ema_exit_min_hold_min")
+            min_hold_min = int(raw_min_hold) if raw_min_hold is not None else 120
             od = getattr(trade, "open_date_utc", None)
             if od is not None:
                 held_sec = (current_time - od).total_seconds()
@@ -342,8 +480,12 @@ class TestDonchianFearGreedStrategy(IStrategy):
             ema_slow = close.ewm(span=slow, adjust=False).mean()
 
             # EMA cross_down: 직전봉은 fast>=slow, 현재봉은 fast<slow
-            cross_down = (ema_fast.iloc[-1] < ema_slow.iloc[-1]) and (ema_fast.iloc[-2] >= ema_slow.iloc[-2])
-
+            # ✅ 교차를 놓친 경우 대비: fast<slow 상태가 2캔들 연속이면 EXIT 허용
+            cond_now = ema_fast.iloc[-1] < ema_slow.iloc[-1]
+            cond_prev = ema_fast.iloc[-2] >= ema_slow.iloc[-2]
+            cond_below_prev = ema_fast.iloc[-2] < ema_slow.iloc[-2]
+            cond_slow_down = ema_slow.iloc[-1] < ema_slow.iloc[-2]
+            cross_down = (cond_now and cond_prev) or (cond_now and cond_below_prev and cond_slow_down)
             if cross_down:
                 # 가격이 slow EMA 아래(버퍼 적용 가능)
                 if close.iloc[-1] < ema_slow.iloc[-1] * (1 - price_buf):

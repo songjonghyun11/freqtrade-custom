@@ -1,0 +1,8 @@
+{
+  "strategy_parameters": {
+    "TDFG_GuardV4": {
+      "guard_breakout_margin_min": 0.0020,
+      "guard_upper_wick_ratio_max": 0.55
+    }
+  }
+}

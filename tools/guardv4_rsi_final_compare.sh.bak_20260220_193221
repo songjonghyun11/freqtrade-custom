@@ -1,0 +1,145 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+ROOT="${HOME}/freqtrade"
+cd "$ROOT"
+
+TS="$(date +%Y%m%d_%H%M%S)"
+OUTDIR="user_data/backtest_results/sweep_logs"
+mkdir -p "$OUTDIR"
+
+# ✅ python 문제 해결: python3 또는 venv 우선
+PY="python3"
+if [ -x "${ROOT}/venv311/bin/python" ]; then
+  PY="${ROOT}/venv311/bin/python"
+elif command -v python3 >/dev/null 2>&1; then
+  PY="python3"
+else
+  echo "ERROR: python3 not found. (sudo apt-get update && sudo apt-get install -y python3 python3-pip)"
+  exit 2
+fi
+
+# ====== 너 환경 고정값 ======
+IMG="freqtradeorg/freqtrade:stable"
+STRATEGY="TDFG_GuardV4"
+CONFIG_BASE="/freqtrade/user_data/config/config_spot.json"
+OV_EXIT="/freqtrade/user_data/overrides/exit_baseline.json"
+TIMERANGE="20250101-20260210"
+
+OV_RSI70="/freqtrade/user_data/overrides/guard_v4_closepos090_plus_vol_rsi70.json"
+OV_RSI75="/freqtrade/user_data/overrides/guard_v4_closepos090_plus_vol_rsi75.json"
+
+# (선택) 추가 override 필요하면 여기에 넣어라. 예: "/freqtrade/user_data/overrides/pairs_8.json"
+EXTRA_OVS=()
+
+list_zip_names() {
+  find user_data/backtest_results -maxdepth 1 -type f -name 'backtest-result-*.zip' -printf '%f\n' | sort
+}
+
+pick_new_zip() {
+  local before="$1"
+  local after="$2"
+  comm -13 "$before" "$after" | while read -r f; do
+    echo "user_data/backtest_results/$f"
+  done
+}
+
+zip_verify() {
+  local zip="$1"
+  "$PY" -c 'import sys,zipfile,json
+zp=sys.argv[1]
+with zipfile.ZipFile(zp) as z:
+  cfgs=[n for n in z.namelist() if n.endswith("_config.json")]
+  if not cfgs:
+    print("ZIP_VERIFY: NO _config.json"); raise SystemExit(1)
+  # 가장 큰 config를 채택
+  cfg=max(cfgs, key=lambda n: z.getinfo(n).file_size)
+  data=json.loads(z.read(cfg))
+  sp=(data.get("strategy_parameters") or {})
+  keys=list(sp.keys())
+  tr=(data.get("timeframe_detail") or data.get("timeframe") or "")
+  timer=(data.get("timerange") or "")
+  print(f"ZIP_VERIFY: cfg={cfg} strategy_param_keys={keys} timerange={timer} timeframe={tr}")' "$zip"
+}
+
+run_one() {
+  local label="$1"
+  local ov="$2"
+
+  echo ""
+  echo "==== ${label} ===="
+
+  local before after
+  before="$(mktemp)"
+  after="$(mktemp)"
+  list_zip_names > "$before"
+
+  local log="${OUTDIR}/bt_${TIMERANGE}_${STRATEGY}_${label}_${TS}.log"
+
+  # ✅ docker backtesting (출력은 log 파일에만)
+  docker run --rm \
+    -v "$(pwd)/user_data:/freqtrade/user_data" \
+    "$IMG" backtesting \
+    --config "$CONFIG_BASE" \
+    --config "$OV_EXIT" \
+    "${EXTRA_OVS[@]/#/--config }" \
+    --config "$ov" \
+    --strategy "$STRATEGY" \
+    --strategy-path /freqtrade/user_data/strategies \
+    --timerange "$TIMERANGE" \
+    > "$log" 2>&1
+
+  list_zip_names > "$after"
+
+  mapfile -t newzips < <(pick_new_zip "$before" "$after" || true)
+  rm -f "$before" "$after"
+
+  if [ "${#newzips[@]}" -eq 0 ]; then
+    echo "ERROR: no new zip detected. check backtest_results dir."
+    echo "LOG=$log"
+    return 3
+  fi
+
+  # 여러개면 mtime 최신 1개
+  local zip
+  zip="$(ls -1t "${newzips[@]}" 2>/dev/null | head -n1)"
+
+  echo "RC=0"
+  echo "LOG=$log"
+  echo "ZIP=$zip"
+
+  # summary 라인(표)만 1줄
+  local summary
+  summary="$(grep -n -m1 -E '│[[:space:]]*'"$STRATEGY"'[[:space:]]*│|\|[[:space:]]*'"$STRATEGY"'[[:space:]]*\|' "$log" || true)"
+  echo "SUMMARY=${summary:-<not found>}"
+
+  # zip 내부 config 검증
+  zip_verify "$zip" || true
+
+  # ✅ 포렌식 생성 (report.txt 반드시 만든다)
+  local zbase
+  zbase="$(basename "$zip" .zip)"
+  local fdir="user_data/backtest_results/forensics/${zbase}"
+  mkdir -p "$fdir"
+
+  local flog="${OUTDIR}/for_${TIMERANGE}_${STRATEGY}_${label}_${TS}.log"
+  "$PY" tools/entry_forensics.py \
+    --zip "$zip" \
+    --strategy "$STRATEGY" \
+    --bad_exit "stop_loss,ema_cross_exit" \
+    --bad_profit_abs 0.0 \
+    > "$flog" 2>&1 || true
+
+  local rpt="${fdir}/report.txt"
+  if [ -f "$rpt" ]; then
+    echo "$(grep -m1 '^TOTAL=' "$rpt")"
+  else
+    echo "ERROR: report.txt not created. check $flog"
+  fi
+}
+
+run_one "RSI70" "$OV_RSI70"
+run_one "RSI75" "$OV_RSI75"
+
+echo ""
+echo "DONE. outdir=$OUTDIR"

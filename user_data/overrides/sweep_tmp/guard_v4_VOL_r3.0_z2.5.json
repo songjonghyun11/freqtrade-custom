@@ -1,0 +1,8 @@
+{
+  "strategy_parameters": {
+    "TDFG_GuardV4": {
+      "guard_vol_ratio_min": 3.0,
+      "guard_vol_z_min": 2.5
+    }
+  }
+}

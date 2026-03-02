@@ -1,0 +1,7 @@
+{
+  "strategy_parameters": {
+    "TDFG_GuardV4": {
+      "guard_sl_lock_minutes": 180
+    }
+  }
+}
